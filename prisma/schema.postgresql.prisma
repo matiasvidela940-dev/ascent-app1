@@ -1,0 +1,155 @@
+// ==============================================
+// ASCENT RUN CLUB — Schema para Supabase (PostgreSQL)
+// ==============================================
+// INSTRUCCIONES PARA DEPLOY EN VERCEL:
+//
+// 1. Creá cuenta en https://supabase.com (gratis)
+// 2. Creá un nuevo proyecto
+// 3. Andá a Settings → Database → Connection string
+// 4. Copiá la URI del pooler (puerto 6543) → DATABASE_URL en .env
+// 5. Copiá la URI directa (puerto 5432) → DIRECT_URL en .env
+// 6. Reemplazá [YOUR-PASSWORD] con tu contraseña
+// 7. Reemplazá este archivo como schema.prisma
+// 8. Ejecutá: npx prisma db push
+// 9. Hacé deploy en Vercel con las mismas env vars
+//
+// ==============================================
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+model Athlete {
+  id         String         @id @default(cuid())
+  name       String
+  email      String         @unique
+  accessCode String         @unique
+  level      String         @default("INTERMEDIO") // ELITE, INTERMEDIO, AMATEUR
+  targetRace String?
+  raceDate   DateTime?
+  createdAt  DateTime       @default(now())
+  updatedAt  DateTime       @updatedAt
+  weeks      TrainingWeek[]
+
+  @@map("athletes")
+}
+
+model TrainingWeek {
+  id        String        @id @default(cuid())
+  athleteId String
+  weekNumber Int
+  weekType  String        // BASE, CARGA, PICO, DESCARGA
+  startDate DateTime
+  days      TrainingDay[]
+
+  athlete Athlete @relation(fields: [athleteId], references: [id], onDelete: Cascade)
+
+  @@index([athleteId])
+  @@map("training_weeks")
+}
+
+model TrainingDay {
+  id              String   @id @default(cuid())
+  weekId          String
+  dayNumber       Int
+  dayLabel        String
+  type            String   // running, trail, fuerza, descanso
+  title           String
+  description     String
+  distance        String?
+  terrain         String?
+  pace            String?
+  heartRateMin    Int?
+  heartRateMax    Int?
+  isKeySession    Boolean  @default(false)
+  isLongRun       Boolean  @default(false)
+  warmup          String?
+  mainBlock       String?
+  cooldown        String?
+  coachTip        String?
+  elevation       String?
+  intensity       String?
+  hydration       String?
+  recommendations String?
+  completed       Boolean  @default(false)
+  completedAt     DateTime?
+  order           Int      @default(0)
+  feedback        Feedback?
+
+  week TrainingWeek @relation(fields: [weekId], references: [id], onDelete: Cascade)
+
+  @@index([weekId])
+  @@map("training_days")
+}
+
+model Feedback {
+  id            String   @id @default(cuid())
+  trainingDayId String   @unique
+  feeling       String   // facil, normal, dificil
+  comment       String?
+  createdAt     DateTime @default(now())
+
+  trainingDay TrainingDay @relation(fields: [trainingDayId], references: [id], onDelete: Cascade)
+
+  @@map("feedbacks")
+}
+
+// NextAuth.js models (requeridos para la autenticación)
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@map("accounts")
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("sessions")
+}
+
+model User {
+  id            String    @id @default(cuid())
+  name          String?
+  email         String?   @unique
+  emailVerified DateTime?
+  image         String?
+  accounts      Account[]
+  sessions      Session[]
+  athleteId     String?   // Link to Athlete record
+
+  @@map("users")
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+  @@map("verification_tokens")
+}

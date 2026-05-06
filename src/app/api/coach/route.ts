@@ -1,28 +1,20 @@
 import { db } from '@/lib/db'
 import { NextRequest, NextResponse } from 'next/server'
-import { readFileSync } from 'fs'
-import { join } from 'path'
-
-// Cache for templates loaded from filesystem
-let _templatesCache: Record<string, any> | null = null
-function getTemplatesForLevel(level: string) {
-  if (!_templatesCache) {
-    const filePath = join(process.cwd(), 'public', 'training-templates.json')
-    const raw = readFileSync(filePath, 'utf-8')
-    _templatesCache = JSON.parse(raw)
-  }
-  return _templatesCache![level] || _templatesCache!['INTERMEDIO']
-}
-
-const COACH_CODE = 'ENTRENADOR'
+import { getSession } from '@/lib/auth'
+import { getTemplatesForLevel } from '@/lib/training-templates'
 
 // GET - List all athletes with their weeks
 export async function GET(request: NextRequest) {
   try {
+    const session = await getSession()
     const { searchParams } = new URL(request.url)
     const code = searchParams.get('code')
 
-    if (code !== COACH_CODE) {
+    // Allow both JWT session and code-based auth for backward compat
+    const isCoachSession = session?.role === 'coach'
+    const isCodeValid = code === 'ENTRENADOR'
+
+    if (!isCoachSession && !isCodeValid) {
       return NextResponse.json({ error: 'Código de entrenador inválido' }, { status: 403 })
     }
 
@@ -51,6 +43,12 @@ export async function GET(request: NextRequest) {
 // POST - Create athlete, week, or day
 export async function POST(request: NextRequest) {
   try {
+    const session = await getSession()
+    const isCoachSession = session?.role === 'coach'
+    if (!isCoachSession) {
+      return NextResponse.json({ error: 'No autorizado' }, { status: 403 })
+    }
+
     const body = await request.json()
     const { action } = body
 
@@ -88,7 +86,6 @@ export async function POST(request: NextRequest) {
           return NextResponse.json({ error: 'Faltan campos obligatorios' }, { status: 400 })
         }
 
-        // Update athlete with race info
         await db.athlete.update({
           where: { id: athleteId },
           data: { targetRace: raceName || null, raceDate: new Date(raceDate) },
@@ -97,7 +94,6 @@ export async function POST(request: NextRequest) {
         const raceDay = new Date(raceDate)
         const numWeeks = parseInt(totalWeeks)
 
-        // Determine periodization pattern based on number of weeks
         const getWeekType = (weekIndex: number, totalWeeks: number): string => {
           const weeksFromRace = totalWeeks - weekIndex
           if (weeksFromRace <= 2) return 'DESCARGA'
@@ -126,7 +122,7 @@ export async function POST(request: NextRequest) {
             },
           })
 
-          const dayTemplate = templates[weekType] || templates.BASE
+          const dayTemplate = templates[weekType] || templates['BASE']
           for (const [dayIdx, dt] of dayTemplate.entries()) {
             if (!dt.title) continue
             await db.trainingDay.create({
@@ -340,6 +336,11 @@ export async function POST(request: NextRequest) {
 // DELETE - Remove athlete, week, or day
 export async function DELETE(request: NextRequest) {
   try {
+    const session = await getSession()
+    if (session?.role !== 'coach') {
+      return NextResponse.json({ error: 'No autorizado' }, { status: 403 })
+    }
+
     const { searchParams } = new URL(request.url)
     const action = searchParams.get('action')
     const id = searchParams.get('id')

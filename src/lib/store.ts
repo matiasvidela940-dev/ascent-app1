@@ -65,6 +65,7 @@ interface AppState {
   isCoach: boolean
   isLoading: boolean
   authError: string | null
+  isSessionChecked: boolean // prevent flash of login screen
 
   // Navigation (athlete)
   currentView: ViewType
@@ -78,7 +79,8 @@ interface AppState {
 
   // Actions
   login: (identifier: string) => Promise<void>
-  logout: () => void
+  logout: () => Promise<void>
+  checkSession: () => Promise<void>
   setView: (view: ViewType) => void
   selectDay: (dayId: string) => void
   toggleCompleted: (dayId: string) => Promise<void>
@@ -106,6 +108,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   isCoach: false,
   isLoading: false,
   authError: null,
+  isSessionChecked: false,
   currentView: 'home',
   selectedDayId: null,
 
@@ -117,22 +120,6 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   login: async (identifier: string) => {
     set({ isLoading: true, authError: null })
-
-    // Check for coach code
-    if (identifier.trim().toUpperCase() === 'ENTRENADOR') {
-      set({ isCoach: true, isAuthenticated: true, isLoading: false })
-      // Load coach data
-      try {
-        const res = await fetch('/api/coach?code=ENTRENADOR')
-        if (res.ok) {
-          const data = await res.json()
-          set({ coachAthletes: data.athletes, coachView: 'athletes' })
-        }
-      } catch (error) {
-        console.error('Coach data load error:', error)
-      }
-      return
-    }
 
     try {
       const res = await fetch('/api/auth', {
@@ -148,20 +135,30 @@ export const useAppStore = create<AppState>((set, get) => ({
         return
       }
 
-      set({
-        athlete: data.athlete,
-        currentWeek: data.currentWeek,
-        isAuthenticated: true,
-        isCoach: false,
-        isLoading: false,
-        currentView: 'home',
-      })
+      if (data.role === 'coach') {
+        set({ isCoach: true, isAuthenticated: true, isLoading: false })
+        await get().loadCoachData()
+      } else if (data.role === 'athlete') {
+        set({
+          athlete: data.athlete,
+          currentWeek: data.currentWeek,
+          isAuthenticated: true,
+          isCoach: false,
+          isLoading: false,
+          currentView: 'home',
+        })
+      }
     } catch {
       set({ authError: 'Error de conexión. Intentá de nuevo.', isLoading: false })
     }
   },
 
-  logout: () => {
+  logout: async () => {
+    try {
+      await fetch('/api/auth', { method: 'DELETE' })
+    } catch {
+      // Continue anyway
+    }
     set({
       athlete: null,
       currentWeek: null,
@@ -174,6 +171,36 @@ export const useAppStore = create<AppState>((set, get) => ({
       selectedAthleteId: null,
       selectedWeekId: null,
     })
+  },
+
+  checkSession: async () => {
+    try {
+      const res = await fetch('/api/auth')
+      const data = await res.json()
+
+      if (!data.authenticated) {
+        set({ isSessionChecked: true })
+        return
+      }
+
+      if (data.role === 'coach') {
+        set({ isCoach: true, isAuthenticated: true, isSessionChecked: true })
+        await get().loadCoachData()
+      } else if (data.role === 'athlete') {
+        set({
+          athlete: data.athlete,
+          currentWeek: data.currentWeek,
+          isAuthenticated: true,
+          isCoach: false,
+          isSessionChecked: true,
+          currentView: 'home',
+        })
+      } else {
+        set({ isSessionChecked: true })
+      }
+    } catch {
+      set({ isSessionChecked: true })
+    }
   },
 
   setView: (view: ViewType) => set({ currentView: view }),

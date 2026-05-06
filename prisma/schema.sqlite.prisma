@@ -1,3 +1,6 @@
+// Este es el schema de DESARROLLO local (SQLite)
+// Para producción en Vercel, usá schema.prisma (PostgreSQL/Supabase)
+
 generator client {
   provider = "prisma-client-js"
 }
@@ -6,15 +9,6 @@ datasource db {
   provider = "sqlite"
   url      = env("DATABASE_URL")
 }
-
-// ==============================================
-// IMPORTANTE: Para deploy en Vercel con Supabase:
-// 1. Cambiar provider a "postgresql"
-// 2. Agregar directUrl = env("DIRECT_URL")
-// 3. Agregar @@map("table_name") a cada modelo
-// 4. Ejecutar: npx prisma migrate dev --name init
-// Ver schema.postgresql.prisma para referencia
-// ==============================================
 
 model Athlete {
   id         String         @id @default(cuid())

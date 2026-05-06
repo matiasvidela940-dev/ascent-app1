@@ -1,8 +1,14 @@
 import { db } from '@/lib/db'
 import { NextRequest, NextResponse } from 'next/server'
+import { getSession } from '@/lib/auth'
 
 export async function GET(request: NextRequest) {
   try {
+    const session = await getSession()
+    if (!session) {
+      return NextResponse.json({ error: 'No autenticado' }, { status: 401 })
+    }
+
     const { searchParams } = new URL(request.url)
     const athleteId = searchParams.get('athleteId')
 
@@ -36,6 +42,11 @@ export async function GET(request: NextRequest) {
 
 export async function PATCH(request: NextRequest) {
   try {
+    const session = await getSession()
+    if (!session) {
+      return NextResponse.json({ error: 'No autenticado' }, { status: 401 })
+    }
+
     const { dayId, completed } = await request.json()
 
     if (!dayId) {

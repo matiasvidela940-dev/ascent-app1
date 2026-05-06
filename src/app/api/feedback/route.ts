@@ -1,8 +1,14 @@
 import { db } from '@/lib/db'
 import { NextRequest, NextResponse } from 'next/server'
+import { getSession } from '@/lib/auth'
 
 export async function POST(request: NextRequest) {
   try {
+    const session = await getSession()
+    if (!session) {
+      return NextResponse.json({ error: 'No autenticado' }, { status: 401 })
+    }
+
     const { trainingDayId, feeling, comment } = await request.json()
 
     if (!trainingDayId || !feeling) {
@@ -45,6 +51,11 @@ export async function POST(request: NextRequest) {
 
 export async function GET(request: NextRequest) {
   try {
+    const session = await getSession()
+    if (!session) {
+      return NextResponse.json({ error: 'No autenticado' }, { status: 401 })
+    }
+
     const { searchParams } = new URL(request.url)
     const trainingDayId = searchParams.get('trainingDayId')
 

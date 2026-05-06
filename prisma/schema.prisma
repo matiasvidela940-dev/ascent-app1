@@ -1,0 +1,74 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Athlete {
+  id         String         @id @default(cuid())
+  name       String
+  email      String         @unique
+  accessCode String         @unique
+  createdAt  DateTime       @default(now())
+  updatedAt  DateTime       @updatedAt
+  weeks      TrainingWeek[]
+}
+
+model TrainingWeek {
+  id        String        @id @default(cuid())
+  athleteId String
+  weekNumber Int
+  weekType  String        // BASE, CARGA, PICO, DESCARGA
+  startDate DateTime
+  days      TrainingDay[]
+
+  athlete Athlete @relation(fields: [athleteId], references: [id], onDelete: Cascade)
+
+  @@index([athleteId])
+}
+
+model TrainingDay {
+  id             String   @id @default(cuid())
+  weekId         String
+  dayNumber      Int      // 1, 2, 3... (flexible)
+  dayLabel       String   // "Día 1" or "Lunes" etc
+  type           String   // running, trail, fuerza, descanso
+  title          String
+  description    String
+  distance       String?  // "10 km"
+  terrain        String?  // "mixto", "trail", "pista"
+  pace           String?  // "conversacional"
+  heartRateMin   Int?
+  heartRateMax   Int?
+  isKeySession   Boolean  @default(false)
+  isLongRun      Boolean  @default(false)
+  warmup         String?
+  mainBlock      String?
+  cooldown       String?
+  coachTip       String?
+  elevation      String?  // "600m+" for trail
+  intensity      String?  // "Z2"
+  hydration      String?
+  recommendations String?
+  completed      Boolean  @default(false)
+  completedAt    DateTime?
+  order          Int      @default(0)
+  feedback       Feedback?
+
+  week TrainingWeek @relation(fields: [weekId], references: [id], onDelete: Cascade)
+
+  @@index([weekId])
+}
+
+model Feedback {
+  id            String   @id @default(cuid())
+  trainingDayId String   @unique
+  feeling       String   // facil, normal, dificil
+  comment       String?
+  createdAt     DateTime @default(now())
+
+  trainingDay TrainingDay @relation(fields: [trainingDayId], references: [id], onDelete: Cascade)
+}

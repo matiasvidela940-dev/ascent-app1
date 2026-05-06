@@ -1,11 +1,15 @@
 'use client'
 
-import { useAppStore, TrainingDayData } from '@/lib/store'
+import { useAppStore } from '@/lib/store'
 import { LoginScreen } from '@/components/login-screen'
 import { AppShell } from '@/components/app-shell'
+import { CoachPanel } from '@/components/coach-panel'
 
 export default function Home() {
   const isAuthenticated = useAppStore(s => s.isAuthenticated)
+  const isCoach = useAppStore(s => s.isCoach)
 
-  return isAuthenticated ? <AppShell /> : <LoginScreen />
+  if (!isAuthenticated) return <LoginScreen />
+  if (isCoach) return <CoachPanel />
+  return <AppShell />
 }

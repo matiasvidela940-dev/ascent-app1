@@ -74,11 +74,18 @@ export function LoginScreen() {
           )}
         </form>
 
-        {/* Footer hint */}
-        <p className="text-xs text-muted-foreground/60 text-center fade-in" style={{ animationDelay: '0.2s' }}>
-          Ingresá con tu email o código de acceso<br />
-          proporcionado por tu entrenador
-        </p>
+        {/* Footer hints */}
+        <div className="space-y-3 text-center fade-in" style={{ animationDelay: '0.2s' }}>
+          <p className="text-xs text-muted-foreground/60">
+            Ingresá con tu email o código de acceso<br />
+            proporcionado por tu entrenador
+          </p>
+          <div className="border-t border-border/50 pt-3">
+            <p className="text-[10px] text-muted-foreground/40 tracking-wider font-medium">
+              ENTRENADORES: Ingresen con el código ENTRENADOR
+            </p>
+          </div>
+        </div>
       </div>
 
       {/* Brand phrase */}

@@ -27,4 +27,9 @@ export {
   Coffee,
   Activity,
   Zap,
+  Users,
+  UserPlus,
+  Trash2,
+  Plus,
+  Label,
 } from 'lucide-react'

@@ -47,19 +47,31 @@ export interface AthleteData {
   email: string
 }
 
+export interface CoachAthleteData extends AthleteData {
+  weeks: WeekData[]
+}
+
 type ViewType = 'home' | 'plan' | 'session' | 'longrun' | 'feedback'
+type CoachViewType = 'athletes' | 'athlete-detail' | 'week-detail' | 'create-athlete' | 'create-week' | 'create-day'
 
 interface AppState {
   // Auth
   athlete: AthleteData | null
   currentWeek: WeekData | null
   isAuthenticated: boolean
+  isCoach: boolean
   isLoading: boolean
   authError: string | null
 
-  // Navigation
+  // Navigation (athlete)
   currentView: ViewType
   selectedDayId: string | null
+
+  // Coach state
+  coachAthletes: CoachAthleteData[]
+  coachView: CoachViewType
+  selectedAthleteId: string | null
+  selectedWeekId: string | null
 
   // Actions
   login: (identifier: string) => Promise<void>
@@ -68,19 +80,53 @@ interface AppState {
   selectDay: (dayId: string) => void
   toggleCompleted: (dayId: string) => Promise<void>
   submitFeedback: (dayId: string, feeling: string, comment: string) => Promise<void>
+
+  // Coach actions
+  loadCoachData: () => Promise<void>
+  setCoachView: (view: CoachViewType) => void
+  selectAthlete: (id: string) => void
+  selectWeek: (id: string) => void
+  createAthlete: (name: string, email: string, accessCode: string) => Promise<void>
+  createWeek: (athleteId: string, weekNumber: number, weekType: string, startDate: string) => Promise<void>
+  createDay: (data: Record<string, unknown>) => Promise<void>
+  deleteItem: (action: string, id: string) => Promise<void>
 }
 
 export const useAppStore = create<AppState>((set, get) => ({
   athlete: null,
   currentWeek: null,
   isAuthenticated: false,
+  isCoach: false,
   isLoading: false,
   authError: null,
   currentView: 'home',
   selectedDayId: null,
 
+  // Coach state
+  coachAthletes: [],
+  coachView: 'athletes',
+  selectedAthleteId: null,
+  selectedWeekId: null,
+
   login: async (identifier: string) => {
     set({ isLoading: true, authError: null })
+
+    // Check for coach code
+    if (identifier.trim().toUpperCase() === 'ENTRENADOR') {
+      set({ isCoach: true, isAuthenticated: true, isLoading: false })
+      // Load coach data
+      try {
+        const res = await fetch('/api/coach?code=ENTRENADOR')
+        if (res.ok) {
+          const data = await res.json()
+          set({ coachAthletes: data.athletes, coachView: 'athletes' })
+        }
+      } catch (error) {
+        console.error('Coach data load error:', error)
+      }
+      return
+    }
+
     try {
       const res = await fetch('/api/auth', {
         method: 'POST',
@@ -99,6 +145,7 @@ export const useAppStore = create<AppState>((set, get) => ({
         athlete: data.athlete,
         currentWeek: data.currentWeek,
         isAuthenticated: true,
+        isCoach: false,
         isLoading: false,
         currentView: 'home',
       })
@@ -112,8 +159,13 @@ export const useAppStore = create<AppState>((set, get) => ({
       athlete: null,
       currentWeek: null,
       isAuthenticated: false,
+      isCoach: false,
       currentView: 'home',
       selectedDayId: null,
+      coachAthletes: [],
+      coachView: 'athletes',
+      selectedAthleteId: null,
+      selectedWeekId: null,
     })
   },
 
@@ -151,7 +203,6 @@ export const useAppStore = create<AppState>((set, get) => ({
 
       const { day: updatedDay } = await res.json()
 
-      // Update local state
       if (state.currentWeek) {
         const updatedDays = state.currentWeek.days.map(d =>
           d.id === dayId
@@ -179,7 +230,6 @@ export const useAppStore = create<AppState>((set, get) => ({
 
       const { feedback } = await res.json()
 
-      // Update local state
       const state = get()
       if (state.currentWeek) {
         const updatedDays = state.currentWeek.days.map(d =>
@@ -189,6 +239,91 @@ export const useAppStore = create<AppState>((set, get) => ({
       }
     } catch (error) {
       console.error('Feedback error:', error)
+    }
+  },
+
+  // Coach actions
+  loadCoachData: async () => {
+    try {
+      const res = await fetch('/api/coach?code=ENTRENADOR')
+      if (res.ok) {
+        const data = await res.json()
+        set({ coachAthletes: data.athletes })
+      }
+    } catch (error) {
+      console.error('Coach data load error:', error)
+    }
+  },
+
+  setCoachView: (view: CoachViewType) => set({ coachView: view }),
+
+  selectAthlete: (id: string) => set({ selectedAthleteId: id, coachView: 'athlete-detail' }),
+  selectWeek: (id: string) => set({ selectedWeekId: id, coachView: 'week-detail' }),
+
+  createAthlete: async (name: string, email: string, accessCode: string) => {
+    try {
+      const res = await fetch('/api/coach', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'createAthlete', name, email, accessCode }),
+      })
+      if (!res.ok) {
+        const data = await res.json()
+        throw new Error(data.error)
+      }
+      await get().loadCoachData()
+      set({ coachView: 'athletes' })
+    } catch (error) {
+      throw error
+    }
+  },
+
+  createWeek: async (athleteId: string, weekNumber: number, weekType: string, startDate: string) => {
+    try {
+      const res = await fetch('/api/coach', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'createWeek', athleteId, weekNumber, weekType, startDate }),
+      })
+      if (!res.ok) {
+        const data = await res.json()
+        throw new Error(data.error)
+      }
+      await get().loadCoachData()
+      set({ coachView: 'athlete-detail' })
+    } catch (error) {
+      throw error
+    }
+  },
+
+  createDay: async (data: Record<string, unknown>) => {
+    try {
+      const res = await fetch('/api/coach', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'createDay', ...data }),
+      })
+      if (!res.ok) {
+        const respData = await res.json()
+        throw new Error(respData.error)
+      }
+      await get().loadCoachData()
+      set({ coachView: 'week-detail' })
+    } catch (error) {
+      throw error
+    }
+  },
+
+  deleteItem: async (action: string, id: string) => {
+    try {
+      const res = await fetch(`/api/coach?action=${action}&id=${id}`, { method: 'DELETE' })
+      if (!res.ok) {
+        const data = await res.json()
+        throw new Error(data.error)
+      }
+      await get().loadCoachData()
+    } catch (error) {
+      throw error
     }
   },
 }))

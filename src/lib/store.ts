@@ -52,7 +52,7 @@ export interface CoachAthleteData extends AthleteData {
 }
 
 type ViewType = 'home' | 'plan' | 'session' | 'longrun' | 'feedback'
-type CoachViewType = 'athletes' | 'athlete-detail' | 'week-detail' | 'create-athlete' | 'create-week' | 'create-day'
+type CoachViewType = 'athletes' | 'athlete-detail' | 'week-detail' | 'create-athlete' | 'create-week' | 'create-day' | 'quick-week' | 'duplicate-week'
 
 interface AppState {
   // Auth
@@ -89,6 +89,8 @@ interface AppState {
   createAthlete: (name: string, email: string, accessCode: string) => Promise<void>
   createWeek: (athleteId: string, weekNumber: number, weekType: string, startDate: string) => Promise<void>
   createDay: (data: Record<string, unknown>) => Promise<void>
+  createWeekWithDays: (athleteId: string, weekNumber: number, weekType: string, startDate: string, days: Record<string, unknown>[]) => Promise<void>
+  duplicateWeek: (sourceWeekId: string, targetAthleteId: string, newWeekNumber: number, newWeekType: string) => Promise<void>
   deleteItem: (action: string, id: string) => Promise<void>
 }
 
@@ -309,6 +311,42 @@ export const useAppStore = create<AppState>((set, get) => ({
       }
       await get().loadCoachData()
       set({ coachView: 'week-detail' })
+    } catch (error) {
+      throw error
+    }
+  },
+
+  createWeekWithDays: async (athleteId: string, weekNumber: number, weekType: string, startDate: string, days: Record<string, unknown>[]) => {
+    try {
+      const res = await fetch('/api/coach', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'createWeekWithDays', athleteId, weekNumber, weekType, startDate, days }),
+      })
+      if (!res.ok) {
+        const respData = await res.json()
+        throw new Error(respData.error)
+      }
+      await get().loadCoachData()
+      set({ coachView: 'athlete-detail' })
+    } catch (error) {
+      throw error
+    }
+  },
+
+  duplicateWeek: async (sourceWeekId: string, targetAthleteId: string, newWeekNumber: number, newWeekType: string) => {
+    try {
+      const res = await fetch('/api/coach', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'duplicateWeek', sourceWeekId, targetAthleteId, newWeekNumber, newWeekType }),
+      })
+      if (!res.ok) {
+        const respData = await res.json()
+        throw new Error(respData.error)
+      }
+      await get().loadCoachData()
+      set({ coachView: 'athletes' })
     } catch (error) {
       throw error
     }

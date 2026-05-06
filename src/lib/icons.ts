@@ -31,5 +31,5 @@ export {
   UserPlus,
   Trash2,
   Plus,
-  Label,
+  Copy,
 } from 'lucide-react'

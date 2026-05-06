@@ -107,6 +107,114 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ day })
       }
 
+      case 'createWeekWithDays': {
+        const { athleteId, weekNumber, weekType, startDate, days } = body
+        if (!athleteId || !weekNumber || !weekType || !days || !Array.isArray(days)) {
+          return NextResponse.json({ error: 'Faltan campos obligatorios' }, { status: 400 })
+        }
+
+        const week = await db.trainingWeek.create({
+          data: {
+            athleteId,
+            weekNumber: parseInt(weekNumber),
+            weekType,
+            startDate: startDate ? new Date(startDate) : new Date(),
+          },
+        })
+
+        const createdDays = []
+        for (const d of days) {
+          if (!d.title || !d.type) continue
+          const day = await db.trainingDay.create({
+            data: {
+              weekId: week.id,
+              dayNumber: parseInt(d.dayNumber) || 1,
+              dayLabel: d.dayLabel || `Día ${d.dayNumber}`,
+              type: d.type,
+              title: d.title,
+              description: d.description || '',
+              distance: d.distance || null,
+              terrain: d.terrain || null,
+              pace: d.pace || null,
+              heartRateMin: d.heartRateMin ? parseInt(d.heartRateMin) : null,
+              heartRateMax: d.heartRateMax ? parseInt(d.heartRateMax) : null,
+              isKeySession: d.isKeySession || false,
+              isLongRun: d.isLongRun || false,
+              warmup: d.warmup || null,
+              mainBlock: d.mainBlock || null,
+              cooldown: d.cooldown || null,
+              coachTip: d.coachTip || null,
+              elevation: d.elevation || null,
+              intensity: d.intensity || null,
+              hydration: d.hydration || null,
+              recommendations: d.recommendations || null,
+              order: d.order ? parseInt(d.order) : parseInt(d.dayNumber) || 1,
+            },
+          })
+          createdDays.push(day)
+        }
+
+        return NextResponse.json({ week, days: createdDays })
+      }
+
+      case 'duplicateWeek': {
+        const { sourceWeekId, targetAthleteId, newWeekNumber, newWeekType } = body
+        if (!sourceWeekId || !targetAthleteId) {
+          return NextResponse.json({ error: 'Faltan campos obligatorios' }, { status: 400 })
+        }
+
+        const sourceWeek = await db.trainingWeek.findUnique({
+          where: { id: sourceWeekId },
+          include: { days: { orderBy: { order: 'asc' } } },
+        })
+
+        if (!sourceWeek) {
+          return NextResponse.json({ error: 'Semana origen no encontrada' }, { status: 404 })
+        }
+
+        const newWeek = await db.trainingWeek.create({
+          data: {
+            athleteId: targetAthleteId,
+            weekNumber: parseInt(newWeekNumber) || sourceWeek.weekNumber,
+            weekType: newWeekType || sourceWeek.weekType,
+            startDate: new Date(),
+          },
+        })
+
+        const createdDays = []
+        for (const d of sourceWeek.days) {
+          const day = await db.trainingDay.create({
+            data: {
+              weekId: newWeek.id,
+              dayNumber: d.dayNumber,
+              dayLabel: d.dayLabel,
+              type: d.type,
+              title: d.title,
+              description: d.description,
+              distance: d.distance,
+              terrain: d.terrain,
+              pace: d.pace,
+              heartRateMin: d.heartRateMin,
+              heartRateMax: d.heartRateMax,
+              isKeySession: d.isKeySession,
+              isLongRun: d.isLongRun,
+              warmup: d.warmup,
+              mainBlock: d.mainBlock,
+              cooldown: d.cooldown,
+              coachTip: d.coachTip,
+              elevation: d.elevation,
+              intensity: d.intensity,
+              hydration: d.hydration,
+              recommendations: d.recommendations,
+              order: d.order,
+            },
+          })
+          createdDays.push(day)
+        }
+
+        return NextResponse.json({ week: newWeek, days: createdDays })
+      }
+
       default:
         return NextResponse.json({ error: 'Acción no reconocida' }, { status: 400 })
     }

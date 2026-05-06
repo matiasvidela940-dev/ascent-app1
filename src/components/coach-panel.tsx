@@ -22,6 +22,8 @@ import {
   Loader2,
   UserPlus,
   MessageSquare,
+  Zap,
+  Copy,
 } from '@/lib/icons'
 import { cn } from '@/lib/utils'
 import { useState } from 'react'
@@ -34,6 +36,52 @@ const dayTypes = [
   { value: 'fuerza', label: 'Fuerza', icon: Dumbbell },
   { value: 'descanso', label: 'Descanso', icon: BedDouble },
 ]
+
+// ── Week templates ──────────────────────────────
+const weekTemplates: Record<string, Array<{
+  type: string; title: string; description: string; distance: string;
+  terrain: string; pace: string; intensity: string; heartRateMin: string; heartRateMax: string;
+  isKeySession: boolean; isLongRun: boolean; elevation: string;
+  warmup: string; mainBlock: string; cooldown: string; coachTip: string;
+  hydration: string; recommendations: string;
+}>> = {
+  BASE: [
+    { type: 'running', title: 'Rodaje Suave Z1', description: 'Trote regenerativo para arrancar la semana', distance: '5-6 km', terrain: 'plano', pace: 'muy fácil', intensity: 'Z1', heartRateMin: '120', heartRateMax: '135', isKeySession: false, isLongRun: false, elevation: '', warmup: '', mainBlock: '', cooldown: '', coachTip: '', hydration: '', recommendations: '' },
+    { type: 'fuerza', title: 'Fuerza General', description: 'Circuito de fuerza: piernas, core y upper', distance: '', terrain: 'gimnasio', pace: '', intensity: '', heartRateMin: '', heartRateMax: '', isKeySession: false, isLongRun: false, elevation: '', warmup: '', mainBlock: '', cooldown: '', coachTip: '', hydration: '', recommendations: '' },
+    { type: 'running', title: 'Rodaje Z2', description: 'Rodaje aeróbico en zona 2', distance: '8 km', terrain: 'mixto', pace: 'conversacional', intensity: 'Z2', heartRateMin: '140', heartRateMax: '155', isKeySession: false, isLongRun: false, elevation: '', warmup: '', mainBlock: '', cooldown: '', coachTip: '', hydration: '', recommendations: '' },
+    { type: 'descanso', title: 'Descanso Activo', description: 'Recuperación: caminata suave o estiramientos', distance: '', terrain: '', pace: '', intensity: '', heartRateMin: '', heartRateMax: '', isKeySession: false, isLongRun: false, elevation: '', warmup: '', mainBlock: '', cooldown: '', coachTip: '', hydration: '', recommendations: '' },
+    { type: 'running', title: 'Técnica de Carrera', description: 'Drills de técnica + rectas cortas', distance: '7 km', terrain: 'pista', pace: 'progresivo', intensity: 'Z3', heartRateMin: '130', heartRateMax: '160', isKeySession: true, isLongRun: false, elevation: '', warmup: '10 min trote suave + drills', mainBlock: '6 × 200m a ritmo 5K', cooldown: '10 min trote suave', coachTip: 'La técnica es la base de todo. 💪', hydration: '', recommendations: '' },
+    { type: 'trail', title: 'Fondo Largo ⛰️', description: 'Fondo progresivo en trail', distance: '14-16 km', terrain: 'trail', pace: 'progresivo', intensity: 'Z2-Z3', heartRateMin: '135', heartRateMax: '155', isKeySession: false, isLongRun: true, elevation: '350m+', warmup: '', mainBlock: '', cooldown: '', coachTip: 'Empezá suave, terminá fuerte. 🌿', hydration: '1L mínimo. Geles cada 45 min.', recommendations: '• Elegí un trail que disfrutes\n• Empezá suave\n• Prestá atención al terreno técnico' },
+    { type: 'descanso', title: 'Descanso Total', description: 'El cuerpo crece cuando descansa', distance: '', terrain: '', pace: '', intensity: '', heartRateMin: '', heartRateMax: '', isKeySession: false, isLongRun: false, elevation: '', warmup: '', mainBlock: '', cooldown: '', coachTip: '', hydration: '', recommendations: '' },
+  ],
+  CARGA: [
+    { type: 'running', title: 'Rodaje Suave Z1', description: 'Trote regenerativo para iniciar la semana', distance: '6 km', terrain: 'plano', pace: 'muy fácil', intensity: 'Z1', heartRateMin: '120', heartRateMax: '135', isKeySession: false, isLongRun: false, elevation: '', warmup: '', mainBlock: '', cooldown: '', coachTip: '', hydration: '', recommendations: '' },
+    { type: 'fuerza', title: 'Fuerza Funcional', description: 'Circuito de fuerza enfocado en piernas y core', distance: '', terrain: 'gimnasio', pace: '', intensity: '', heartRateMin: '', heartRateMax: '', isKeySession: false, isLongRun: false, elevation: '', warmup: '', mainBlock: '', cooldown: '', coachTip: '', hydration: '', recommendations: '' },
+    { type: 'running', title: 'Rodaje Z2', description: 'Rodaje en zona 2 para construir base aeróbica', distance: '10 km', terrain: 'mixto', pace: 'conversacional', intensity: 'Z2', heartRateMin: '140', heartRateMax: '155', isKeySession: false, isLongRun: false, elevation: '', warmup: '', mainBlock: '', cooldown: '', coachTip: '', hydration: '', recommendations: '' },
+    { type: 'descanso', title: 'Descanso Activo', description: 'Día de recuperación. Opcional: caminata o estiramientos', distance: '', terrain: '', pace: '', intensity: '', heartRateMin: '', heartRateMax: '', isKeySession: false, isLongRun: false, elevation: '', warmup: '', mainBlock: '', cooldown: '', coachTip: '', hydration: '', recommendations: '' },
+    { type: 'trail', title: 'Series en Cuesta 🔥', description: 'Trabajo de fuerza y potencia en subida', distance: '8 km', terrain: 'trail con desnivel', pace: 'variable', intensity: 'Z4-Z5', heartRateMin: '155', heartRateMax: '175', isKeySession: true, isLongRun: false, elevation: '', warmup: '15 min de trote suave + movilidad', mainBlock: '8 × 2 min en subida a ritmo fuerte\nBajada trotando como recuperación', cooldown: '10 min de trote suave', coachTip: 'Las últimas dos van con todo. 💪', hydration: '', recommendations: '' },
+    { type: 'trail', title: 'Fondo Largo ⛰️', description: 'Fondo largo en trail para resistencia mental y física', distance: '20-22 km', terrain: 'trail montañoso', pace: 'conversacional', intensity: 'Z2', heartRateMin: '135', heartRateMax: '150', isKeySession: false, isLongRun: true, elevation: '600m+', warmup: '', mainBlock: '', cooldown: '', coachTip: 'No es carrera, es entrenamiento. 🏔️', hydration: '1.5L mínimo. Tomá cada 20-25 min.', recommendations: '• Empezá suave\n• Últimos 5 km más exigentes\n• Llevá gel para después del km 14' },
+    { type: 'descanso', title: 'Descanso Total', description: 'Recuperación completa. El cuerpo crece cuando descansa.', distance: '', terrain: '', pace: '', intensity: '', heartRateMin: '', heartRateMax: '', isKeySession: false, isLongRun: false, elevation: '', warmup: '', mainBlock: '', cooldown: '', coachTip: '', hydration: '', recommendations: '' },
+  ],
+  PICO: [
+    { type: 'running', title: 'Rodaje Regenerativo', description: 'Trote muy suave, solo para activar', distance: '5 km', terrain: 'plano', pace: 'muy fácil', intensity: 'Z1', heartRateMin: '115', heartRateMax: '130', isKeySession: false, isLongRun: false, elevation: '', warmup: '', mainBlock: '', cooldown: '', coachTip: '', hydration: '', recommendations: '' },
+    { type: 'running', title: 'Intervalos Z4-Z5 🔥', description: 'Sesión de calidad: intervalos largos a ritmo umbral', distance: '9 km', terrain: 'pista o plano', pace: 'fuerte', intensity: 'Z4-Z5', heartRateMin: '165', heartRateMax: '185', isKeySession: true, isLongRun: false, elevation: '', warmup: '15 min trote suave + 4 rectas de 100m', mainBlock: '5 × 1000m a ritmo 5K\nRecovery: 2 min trote\nÚltima al máximo', cooldown: '12 min trote suave + estiramientos', coachTip: 'Esta es la sesión que te prepara para competir. Dá todo. 🔥', hydration: '', recommendations: '' },
+    { type: 'descanso', title: 'Descanso Activo', description: 'Caminata suave, foam roller, estiramientos', distance: '', terrain: '', pace: '', intensity: '', heartRateMin: '', heartRateMax: '', isKeySession: false, isLongRun: false, elevation: '', warmup: '', mainBlock: '', cooldown: '', coachTip: '', hydration: '', recommendations: '' },
+    { type: 'running', title: 'Rodaje Z2 Corto', description: 'Rodaje aeróbico corto para mantener sensación', distance: '7 km', terrain: 'mixto', pace: 'conversacional', intensity: 'Z2', heartRateMin: '140', heartRateMax: '150', isKeySession: false, isLongRun: false, elevation: '', warmup: '', mainBlock: '', cooldown: '', coachTip: '', hydration: '', recommendations: '' },
+    { type: 'fuerza', title: 'Fuerza Mantenimiento', description: 'Sesión ligera de fuerza. Sin cargar.', distance: '', terrain: 'gimnasio', pace: '', intensity: '', heartRateMin: '', heartRateMax: '', isKeySession: false, isLongRun: false, elevation: '', warmup: '', mainBlock: '', cooldown: '', coachTip: '', hydration: '', recommendations: '' },
+    { type: 'trail', title: 'Fondo Largo ⛰️', description: 'Último fondo largo antes de la descarga', distance: '18-20 km', terrain: 'trail', pace: 'conversacional', intensity: 'Z2', heartRateMin: '135', heartRateMax: '150', isKeySession: false, isLongRun: true, elevation: '500m+', warmup: '', mainBlock: '', cooldown: '', coachTip: 'Último largo, no aprietes. 🏔️', hydration: '1.5L + geles', recommendations: '• Ritmo cómodo\n• No forzar\n• Disfrutar el trail' },
+    { type: 'descanso', title: 'Descanso Total', description: 'Recuperación completa', distance: '', terrain: '', pace: '', intensity: '', heartRateMin: '', heartRateMax: '', isKeySession: false, isLongRun: false, elevation: '', warmup: '', mainBlock: '', cooldown: '', coachTip: '', hydration: '', recommendations: '' },
+  ],
+  DESCARGA: [
+    { type: 'running', title: 'Rodaje Suave Z1', description: 'Trote regenerativo muy fácil', distance: '4 km', terrain: 'plano', pace: 'muy fácil', intensity: 'Z1', heartRateMin: '115', heartRateMax: '130', isKeySession: false, isLongRun: false, elevation: '', warmup: '', mainBlock: '', cooldown: '', coachTip: '', hydration: '', recommendations: '' },
+    { type: 'running', title: 'Rodaje Progresivo', description: 'Rodaje corto con progresión final', distance: '6 km', terrain: 'mixto', pace: 'progresivo', intensity: 'Z1-Z3', heartRateMin: '120', heartRateMax: '155', isKeySession: false, isLongRun: false, elevation: '', warmup: '', mainBlock: '', cooldown: '', coachTip: 'Dejá que el cuerpo se recupere. Sin forzar. 🧘', hydration: '', recommendations: '' },
+    { type: 'descanso', title: 'Descanso Total', description: 'Día libre. Hacé lo que te guste.', distance: '', terrain: '', pace: '', intensity: '', heartRateMin: '', heartRateMax: '', isKeySession: false, isLongRun: false, elevation: '', warmup: '', mainBlock: '', cooldown: '', coachTip: '', hydration: '', recommendations: '' },
+    { type: 'running', title: 'Técnica + Rectas', description: 'Drills de técnica y rectas cortas sin forzar', distance: '5 km', terrain: 'pista', pace: 'moderado', intensity: 'Z2-Z3', heartRateMin: '130', heartRateMax: '155', isKeySession: false, isLongRun: false, elevation: '', warmup: 'Drills de técnica', mainBlock: '4 × 150m a 80% esfuerzo', cooldown: 'Trote suave 10 min', coachTip: '', hydration: '', recommendations: '' },
+    { type: 'descanso', title: 'Descanso Activo', description: 'Yoga, natación o caminata', distance: '', terrain: '', pace: '', intensity: '', heartRateMin: '', heartRateMax: '', isKeySession: false, isLongRun: false, elevation: '', warmup: '', mainBlock: '', cooldown: '', coachTip: '', hydration: '', recommendations: '' },
+    { type: 'trail', title: 'Fondo Suave ⛰️', description: 'Fondo corto y suave en trail', distance: '10-12 km', terrain: 'trail', pace: 'muy fácil', intensity: 'Z1-Z2', heartRateMin: '120', heartRateMax: '145', isKeySession: false, isLongRun: true, elevation: '200m+', warmup: '', mainBlock: '', cooldown: '', coachTip: 'Semana de descarga, no de competencia. 🌿', hydration: '', recommendations: '' },
+    { type: 'descanso', title: 'Descanso Total', description: 'Preparáte para la próxima semana de carga', distance: '', terrain: '', pace: '', intensity: '', heartRateMin: '', heartRateMax: '', isKeySession: false, isLongRun: false, elevation: '', warmup: '', mainBlock: '', cooldown: '', coachTip: '', hydration: '', recommendations: '' },
+  ],
+}
 
 function getTypeIcon(type: string, size = 'w-4 h-4') {
   switch (type) {
@@ -139,53 +187,26 @@ function CreateAthleteForm() {
 
   return (
     <div className="px-5 py-5 space-y-5 fade-in">
-      <button
-        onClick={() => setCoachView('athletes')}
-        className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors"
-      >
+      <button onClick={() => setCoachView('athletes')} className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors">
         <ChevronLeft className="w-4 h-4" /> Atletas
       </button>
-
       <h2 className="text-xl font-bold tracking-tight">Nuevo Atleta</h2>
-
       <form onSubmit={handleSubmit} className="space-y-4">
         <div className="space-y-2">
           <Label className="text-xs font-semibold text-muted-foreground">Nombre completo</Label>
-          <Input
-            value={name}
-            onChange={e => setName(e.target.value)}
-            placeholder="Ej: Mateo Ruiz"
-            className="h-11 bg-muted/30 border-0 focus-visible:ring-cyan/30 rounded-xl"
-          />
+          <Input value={name} onChange={e => setName(e.target.value)} placeholder="Ej: Mateo Ruiz" className="h-11 bg-muted/30 border-0 focus-visible:ring-cyan/30 rounded-xl" />
         </div>
         <div className="space-y-2">
           <Label className="text-xs font-semibold text-muted-foreground">Email</Label>
-          <Input
-            value={email}
-            onChange={e => setEmail(e.target.value)}
-            placeholder="mateo@email.com"
-            type="email"
-            className="h-11 bg-muted/30 border-0 focus-visible:ring-cyan/30 rounded-xl"
-          />
+          <Input value={email} onChange={e => setEmail(e.target.value)} placeholder="mateo@email.com" type="email" className="h-11 bg-muted/30 border-0 focus-visible:ring-cyan/30 rounded-xl" />
         </div>
         <div className="space-y-2">
           <Label className="text-xs font-semibold text-muted-foreground">Código de acceso</Label>
-          <Input
-            value={accessCode}
-            onChange={e => setAccessCode(e.target.value.toUpperCase())}
-            placeholder="Ej: ASCENT03"
-            className="h-11 bg-muted/30 border-0 focus-visible:ring-cyan/30 rounded-xl uppercase"
-          />
+          <Input value={accessCode} onChange={e => setAccessCode(e.target.value.toUpperCase())} placeholder="Ej: ASCENT03" className="h-11 bg-muted/30 border-0 focus-visible:ring-cyan/30 rounded-xl uppercase" />
           <p className="text-[10px] text-muted-foreground/60">El atleta usará este código para ingresar</p>
         </div>
-
-        <Button
-          type="submit"
-          disabled={!name || !email || !accessCode || isCreating}
-          className="w-full h-11 rounded-xl text-sm font-semibold bg-cyan hover:bg-cyan/90 text-white"
-        >
-          {isCreating ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Plus className="w-4 h-4 mr-1" />}
-          Crear Atleta
+        <Button type="submit" disabled={!name || !email || !accessCode || isCreating} className="w-full h-11 rounded-xl text-sm font-semibold bg-cyan hover:bg-cyan/90 text-white">
+          {isCreating ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Plus className="w-4 h-4 mr-1" />} Crear Atleta
         </Button>
       </form>
     </div>
@@ -194,20 +215,14 @@ function CreateAthleteForm() {
 
 // ── Athlete Detail (weeks) ──────────────────────
 function AthleteDetail() {
-  const { coachAthletes, selectedAthleteId, selectWeek, setCoachView, deleteItem } = useAppStore()
+  const { coachAthletes, selectedAthleteId, selectWeek, setCoachView, deleteItem, duplicateWeek } = useAppStore()
   const athlete = coachAthletes.find(a => a.id === selectedAthleteId)
 
-  if (!athlete) {
-    setCoachView('athletes')
-    return null
-  }
+  if (!athlete) { setCoachView('athletes'); return null }
 
   return (
     <div className="px-5 py-5 space-y-5 fade-in">
-      <button
-        onClick={() => setCoachView('athletes')}
-        className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors"
-      >
+      <button onClick={() => setCoachView('athletes')} className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors">
         <ChevronLeft className="w-4 h-4" /> Atletas
       </button>
 
@@ -223,12 +238,14 @@ function AthleteDetail() {
 
       <div className="flex items-center justify-between">
         <h3 className="text-sm font-semibold">Planificaciones ({athlete.weeks.length})</h3>
-        <Button
-          onClick={() => setCoachView('create-week')}
-          className="h-8 rounded-xl text-xs font-semibold bg-cyan hover:bg-cyan/90 text-white"
-        >
-          <Plus className="w-3 h-3 mr-1" /> Nueva Semana
-        </Button>
+        <div className="flex gap-2">
+          <Button onClick={() => setCoachView('quick-week')} className="h-8 rounded-xl text-xs font-semibold bg-cyan hover:bg-cyan/90 text-white">
+            <Zap className="w-3 h-3 mr-1" /> Carga Rápida
+          </Button>
+          <Button onClick={() => setCoachView('create-week')} variant="outline" className="h-8 rounded-xl text-xs font-medium border-border/80">
+            <Plus className="w-3 h-3 mr-1" /> Semana vacía
+          </Button>
+        </div>
       </div>
 
       <div className="space-y-2">
@@ -238,61 +255,36 @@ function AthleteDetail() {
           return (
             <div key={week.id} className="rounded-2xl border border-border/60 bg-card p-4 space-y-2">
               <div className="flex items-center justify-between">
-                <div
-                  className="flex items-center gap-2 cursor-pointer flex-1"
-                  onClick={() => selectWeek(week.id)}
-                >
+                <div className="flex items-center gap-2 cursor-pointer flex-1" onClick={() => selectWeek(week.id)}>
                   <Calendar className="w-4 h-4 text-cyan" />
                   <span className="text-sm font-semibold">Semana {week.weekNumber}</span>
-                  <Badge className={cn('text-[10px] font-semibold border', getWeekTypeColor(week.weekType))}>
-                    {week.weekType}
-                  </Badge>
+                  <Badge className={cn('text-[10px] font-semibold border', getWeekTypeColor(week.weekType))}>{week.weekType}</Badge>
                 </div>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="w-7 h-7 text-muted-foreground/50 hover:text-destructive"
-                  onClick={async () => {
-                    if (confirm('¿Eliminar esta semana y todos sus días?')) {
-                      try {
-                        await deleteItem('deleteWeek', week.id)
-                        toast.success('Semana eliminada')
-                      } catch { toast.error('Error al eliminar') }
-                    }
-                  }}
-                >
-                  <Trash2 className="w-3.5 h-3.5" />
-                </Button>
+                <div className="flex items-center gap-1">
+                  <Button variant="ghost" size="icon" className="w-7 h-7 text-muted-foreground/50 hover:text-cyan" title="Duplicar semana"
+                    onClick={() => setCoachView('duplicate-week')}>
+                    <Copy className="w-3.5 h-3.5" />
+                  </Button>
+                  <Button variant="ghost" size="icon" className="w-7 h-7 text-muted-foreground/50 hover:text-destructive"
+                    onClick={async () => {
+                      if (confirm('¿Eliminar esta semana y todos sus días?')) {
+                        try { await deleteItem('deleteWeek', week.id); toast.success('Semana eliminada') } catch { toast.error('Error al eliminar') }
+                      }
+                    }}>
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </Button>
+                </div>
               </div>
               <div className="flex items-center gap-3 text-xs text-muted-foreground">
-                <span>{week.days.length} días</span>
-                <span>·</span>
-                <span className="flex items-center gap-1">
-                  <Check className="w-3 h-3 text-cyan" /> {completedDays} completados
-                </span>
-                {feedbackCount > 0 && (
-                  <>
-                    <span>·</span>
-                    <span className="flex items-center gap-1">
-                      <MessageSquare className="w-3 h-3" /> {feedbackCount} feedback
-                    </span>
-                  </>
-                )}
+                <span>{week.days.length} días</span><span>·</span>
+                <span className="flex items-center gap-1"><Check className="w-3 h-3 text-cyan" /> {completedDays} completados</span>
+                {feedbackCount > 0 && <><span>·</span><span className="flex items-center gap-1"><MessageSquare className="w-3 h-3" /> {feedbackCount} feedback</span></>}
               </div>
-              {/* Mini day grid */}
               <div className="flex gap-1">
                 {week.days.map(day => (
-                  <div
-                    key={day.id}
-                    className={cn(
-                      'w-7 h-7 rounded-md flex items-center justify-center text-xs',
-                      day.completed ? 'bg-cyan/10 text-cyan' :
-                      day.isKeySession ? 'bg-orange-50 text-orange-500' :
-                      day.isLongRun ? 'bg-emerald-50 text-emerald-600' :
-                      'bg-muted text-muted-foreground'
-                    )}
-                    title={day.title}
-                  >
+                  <div key={day.id} className={cn('w-7 h-7 rounded-md flex items-center justify-center text-xs',
+                    day.completed ? 'bg-cyan/10 text-cyan' : day.isKeySession ? 'bg-orange-50 text-orange-500' : day.isLongRun ? 'bg-emerald-50 text-emerald-600' : 'bg-muted text-muted-foreground'
+                  )} title={day.title}>
                     {day.completed ? <Check className="w-3 h-3" /> : getTypeIcon(day.type, 'w-3 h-3')}
                   </div>
                 ))}
@@ -300,7 +292,6 @@ function AthleteDetail() {
             </div>
           )
         })}
-
         {athlete.weeks.length === 0 && (
           <div className="text-center py-8">
             <Calendar className="w-8 h-8 text-muted-foreground/30 mx-auto mb-2" />
@@ -312,7 +303,7 @@ function AthleteDetail() {
   )
 }
 
-// ── Create Week Form ──────────────────────
+// ── Create Week Form (empty) ──────────────────────
 function CreateWeekForm() {
   const { selectedAthleteId, createWeek, setCoachView } = useAppStore()
   const [weekNumber, setWeekNumber] = useState('1')
@@ -324,9 +315,76 @@ function CreateWeekForm() {
     e.preventDefault()
     if (!selectedAthleteId || !weekNumber || !weekType) return
     setIsCreating(true)
+    try { await createWeek(selectedAthleteId, parseInt(weekNumber), weekType, startDate); toast.success('Semana creada') }
+    catch (err: unknown) { toast.error(err instanceof Error ? err.message : 'Error') }
+    finally { setIsCreating(false) }
+  }
+
+  return (
+    <div className="px-5 py-5 space-y-5 fade-in">
+      <button onClick={() => setCoachView('athlete-detail')} className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors">
+        <ChevronLeft className="w-4 h-4" /> Atleta
+      </button>
+      <h2 className="text-xl font-bold tracking-tight">Nueva Semana (vacía)</h2>
+      <p className="text-xs text-muted-foreground">Creá la semana y después agregá los días manualmente. Para crear todo junto, usá &quot;Carga Rápida&quot;.</p>
+      <form onSubmit={handleSubmit} className="space-y-4">
+        <div className="space-y-2">
+          <Label className="text-xs font-semibold text-muted-foreground">Número de semana</Label>
+          <Input value={weekNumber} onChange={e => setWeekNumber(e.target.value)} type="number" min="1" className="h-11 bg-muted/30 border-0 focus-visible:ring-cyan/30 rounded-xl" />
+        </div>
+        <div className="space-y-2">
+          <Label className="text-xs font-semibold text-muted-foreground">Tipo de semana</Label>
+          <div className="grid grid-cols-2 gap-2">
+            {weekTypes.map(type => (
+              <button key={type} type="button" onClick={() => setWeekType(type)}
+                className={cn('p-3 rounded-xl text-xs font-semibold border-2 transition-all', weekType === type ? 'border-cyan bg-cyan/5 text-cyan' : 'border-transparent bg-muted/50 text-muted-foreground hover:bg-muted')}>{type}</button>
+            ))}
+          </div>
+        </div>
+        <div className="space-y-2">
+          <Label className="text-xs font-semibold text-muted-foreground">Fecha de inicio</Label>
+          <Input value={startDate} onChange={e => setStartDate(e.target.value)} type="date" className="h-11 bg-muted/30 border-0 focus-visible:ring-cyan/30 rounded-xl" />
+        </div>
+        <Button type="submit" disabled={!weekNumber || !weekType || isCreating} className="w-full h-11 rounded-xl text-sm font-semibold bg-cyan hover:bg-cyan/90 text-white">
+          {isCreating ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Plus className="w-4 h-4 mr-1" />} Crear Semana
+        </Button>
+      </form>
+    </div>
+  )
+}
+
+// ── Quick Week Creation ──────────────────────
+function QuickWeekForm() {
+  const { selectedAthleteId, createWeekWithDays, setCoachView } = useAppStore()
+  const [weekNumber, setWeekNumber] = useState('1')
+  const [weekType, setWeekType] = useState('CARGA')
+  const [startDate, setStartDate] = useState(new Date().toISOString().split('T')[0])
+  const [isCreating, setIsCreating] = useState(false)
+  const [useTemplate, setUseTemplate] = useState(true)
+
+  // Initialize days from template
+  const template = weekTemplates[weekType] || weekTemplates.BASE
+  const [days, setDays] = useState(template.map((t, i) => ({ ...t, dayNumber: String(i + 1), dayLabel: `Día ${i + 1}` })))
+
+  const handleWeekTypeChange = (type: string) => {
+    setWeekType(type)
+    if (useTemplate) {
+      const t = weekTemplates[type] || weekTemplates.BASE
+      setDays(t.map((d, i) => ({ ...d, dayNumber: String(i + 1), dayLabel: `Día ${i + 1}` })))
+    }
+  }
+
+  const updateDay = (index: number, field: string, value: string | boolean) => {
+    setDays(prev => prev.map((d, i) => i === index ? { ...d, [field]: value } : d))
+  }
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!selectedAthleteId) return
+    setIsCreating(true)
     try {
-      await createWeek(selectedAthleteId, parseInt(weekNumber), weekType, startDate)
-      toast.success('Semana creada')
+      await createWeekWithDays(selectedAthleteId, parseInt(weekNumber), weekType, startDate, days.filter(d => d.title))
+      toast.success(`Semana ${weekNumber} creada con ${days.filter(d => d.title).length} días`)
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : 'Error al crear semana')
     } finally {
@@ -336,66 +394,256 @@ function CreateWeekForm() {
 
   return (
     <div className="px-5 py-5 space-y-5 fade-in">
-      <button
-        onClick={() => setCoachView('athlete-detail')}
-        className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors"
-      >
+      <button onClick={() => setCoachView('athlete-detail')} className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors">
         <ChevronLeft className="w-4 h-4" /> Atleta
       </button>
 
-      <h2 className="text-xl font-bold tracking-tight">Nueva Semana</h2>
+      <div className="flex items-center gap-2">
+        <Zap className="w-5 h-5 text-cyan" />
+        <h2 className="text-xl font-bold tracking-tight">Carga Rápida</h2>
+      </div>
+
+      <form onSubmit={handleSubmit} className="space-y-4">
+        {/* Week config */}
+        <div className="space-y-3 rounded-2xl bg-card border border-cyan/20 p-4">
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1">
+              <Label className="text-[10px] font-semibold text-muted-foreground">Semana Nº</Label>
+              <Input value={weekNumber} onChange={e => setWeekNumber(e.target.value)} type="number" min="1" className="h-10 bg-muted/30 border-0 focus-visible:ring-cyan/30 rounded-lg text-sm" />
+            </div>
+            <div className="space-y-1">
+              <Label className="text-[10px] font-semibold text-muted-foreground">Fecha inicio</Label>
+              <Input value={startDate} onChange={e => setStartDate(e.target.value)} type="date" className="h-10 bg-muted/30 border-0 focus-visible:ring-cyan/30 rounded-lg text-sm" />
+            </div>
+          </div>
+          <div className="space-y-1">
+            <Label className="text-[10px] font-semibold text-muted-foreground">Tipo de semana</Label>
+            <div className="grid grid-cols-4 gap-1.5">
+              {weekTypes.map(type => (
+                <button key={type} type="button" onClick={() => handleWeekTypeChange(type)}
+                  className={cn('p-2 rounded-xl text-[10px] font-semibold border-2 transition-all', weekType === type ? 'border-cyan bg-cyan/5 text-cyan' : 'border-transparent bg-muted/50 text-muted-foreground hover:bg-muted')}>{type}</button>
+              ))}
+            </div>
+          </div>
+          <div className="flex items-center justify-between pt-1">
+            <button type="button" onClick={() => {
+              const next = !useTemplate
+              setUseTemplate(next)
+              if (next) {
+                const t = weekTemplates[weekType] || weekTemplates.BASE
+                setDays(t.map((d, i) => ({ ...d, dayNumber: String(i + 1), dayLabel: `Día ${i + 1}` })))
+              }
+            }} className="flex items-center gap-1.5 text-xs text-cyan font-medium">
+              <div className={cn('w-4 h-4 rounded border-2 flex items-center justify-center', useTemplate ? 'bg-cyan border-cyan' : 'border-muted-foreground/40')}>
+                {useTemplate && <Check className="w-3 h-3 text-white" />}
+              </div>
+              Usar plantilla
+            </button>
+            <span className="text-[10px] text-muted-foreground/50">{days.filter(d => d.title).length} días</span>
+          </div>
+        </div>
+
+        {/* Day cards */}
+        <div className="space-y-2">
+          {days.map((day, index) => (
+            <div key={index} className={cn(
+              'rounded-xl border bg-card p-3 space-y-2',
+              day.isKeySession ? 'border-orange-200' : day.isLongRun ? 'border-emerald-200' : 'border-border/40'
+            )}>
+              <div className="flex items-center gap-2">
+                <div className={cn(
+                  'w-7 h-7 rounded-lg flex items-center justify-center shrink-0',
+                  day.isKeySession ? 'bg-orange-50 text-orange-500' : day.isLongRun ? 'bg-emerald-50 text-emerald-600' : 'bg-cyan/10 text-cyan'
+                )}>
+                  {getTypeIcon(day.type, 'w-3.5 h-3.5')}
+                </div>
+                <span className="text-[10px] text-muted-foreground font-medium w-10">{day.dayLabel}</span>
+                <input
+                  value={day.title}
+                  onChange={e => updateDay(index, 'title', e.target.value)}
+                  placeholder="Título del entrenamiento"
+                  className="flex-1 text-sm font-semibold bg-transparent outline-none placeholder:text-muted-foreground/40"
+                />
+                <div className="flex items-center gap-1">
+                  {dayTypes.map(dt => {
+                    const Icon = dt.icon
+                    return (
+                      <button key={dt.value} type="button" onClick={() => updateDay(index, 'type', dt.value)}
+                        className={cn('w-6 h-6 rounded-md flex items-center justify-center transition-all',
+                          day.type === dt.value ? 'bg-cyan/10 text-cyan' : 'text-muted-foreground/30 hover:text-muted-foreground'
+                        )} title={dt.label}>
+                        <Icon className="w-3 h-3" />
+                      </button>
+                    )
+                  })}
+                </div>
+              </div>
+
+              <input
+                value={day.description}
+                onChange={e => updateDay(index, 'description', e.target.value)}
+                placeholder="Descripción breve"
+                className="w-full text-xs bg-muted/20 rounded-lg px-2.5 py-1.5 outline-none focus:ring-1 focus:ring-cyan/30 placeholder:text-muted-foreground/40"
+              />
+
+              <div className="flex flex-wrap gap-2">
+                <input value={day.distance || ''} onChange={e => updateDay(index, 'distance', e.target.value)} placeholder="10 km"
+                  className="w-16 text-[10px] bg-muted/20 rounded px-1.5 py-0.5 outline-none text-center placeholder:text-muted-foreground/40" />
+                <input value={day.intensity || ''} onChange={e => updateDay(index, 'intensity', e.target.value)} placeholder="Z2"
+                  className="w-10 text-[10px] bg-muted/20 rounded px-1.5 py-0.5 outline-none text-center placeholder:text-muted-foreground/40" />
+                <input value={day.pace || ''} onChange={e => updateDay(index, 'pace', e.target.value)} placeholder="Ritmo"
+                  className="w-16 text-[10px] bg-muted/20 rounded px-1.5 py-0.5 outline-none text-center placeholder:text-muted-foreground/40" />
+                <input value={day.elevation || ''} onChange={e => updateDay(index, 'elevation', e.target.value)} placeholder="600m+"
+                  className="w-14 text-[10px] bg-muted/20 rounded px-1.5 py-0.5 outline-none text-center placeholder:text-muted-foreground/40" />
+              </div>
+
+              <div className="flex items-center gap-3">
+                <button type="button" onClick={() => { updateDay(index, 'isKeySession', !day.isKeySession); if (!day.isKeySession) updateDay(index, 'isLongRun', false) }}
+                  className={cn('text-[10px] font-semibold px-2 py-0.5 rounded-md transition-all',
+                    day.isKeySession ? 'bg-orange-50 text-orange-500' : 'text-muted-foreground/40 hover:text-muted-foreground')}>
+                  🔥 Clave
+                </button>
+                <button type="button" onClick={() => { updateDay(index, 'isLongRun', !day.isLongRun); if (!day.isLongRun) updateDay(index, 'isKeySession', false) }}
+                  className={cn('text-[10px] font-semibold px-2 py-0.5 rounded-md transition-all',
+                    day.isLongRun ? 'bg-emerald-50 text-emerald-600' : 'text-muted-foreground/40 hover:text-muted-foreground')}>
+                  ⛰️ Fondo
+                </button>
+                <input value={day.coachTip || ''} onChange={e => updateDay(index, 'coachTip', e.target.value)} placeholder="💡 Tip del entrenador"
+                  className="flex-1 text-[10px] bg-muted/20 rounded px-2 py-0.5 outline-none placeholder:text-muted-foreground/40" />
+              </div>
+
+              {/* Extra detail fields for key/long sessions */}
+              {(day.isKeySession || day.isLongRun) && (
+                <div className="space-y-1.5 pt-1 border-t border-border/30">
+                  {day.isKeySession && (
+                    <>
+                      <textarea value={day.warmup || ''} onChange={e => updateDay(index, 'warmup', e.target.value)} placeholder="Calentamiento" rows={1}
+                        className="w-full text-[10px] bg-muted/20 rounded-lg px-2.5 py-1.5 outline-none resize-none placeholder:text-muted-foreground/40" />
+                      <textarea value={day.mainBlock || ''} onChange={e => updateDay(index, 'mainBlock', e.target.value)} placeholder="Bloque principal" rows={2}
+                        className="w-full text-[10px] bg-muted/20 rounded-lg px-2.5 py-1.5 outline-none resize-none placeholder:text-muted-foreground/40" />
+                      <textarea value={day.cooldown || ''} onChange={e => updateDay(index, 'cooldown', e.target.value)} placeholder="Vuelta a la calma" rows={1}
+                        className="w-full text-[10px] bg-muted/20 rounded-lg px-2.5 py-1.5 outline-none resize-none placeholder:text-muted-foreground/40" />
+                    </>
+                  )}
+                  {day.isLongRun && (
+                    <>
+                      <textarea value={day.hydration || ''} onChange={e => updateDay(index, 'hydration', e.target.value)} placeholder="💧 Hidratación" rows={1}
+                        className="w-full text-[10px] bg-muted/20 rounded-lg px-2.5 py-1.5 outline-none resize-none placeholder:text-muted-foreground/40" />
+                      <textarea value={day.recommendations || ''} onChange={e => updateDay(index, 'recommendations', e.target.value)} placeholder="📋 Recomendaciones" rows={2}
+                        className="w-full text-[10px] bg-muted/20 rounded-lg px-2.5 py-1.5 outline-none resize-none placeholder:text-muted-foreground/40" />
+                    </>
+                  )}
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+
+        <Button type="submit" disabled={isCreating || !days.some(d => d.title)} className="w-full h-11 rounded-xl text-sm font-semibold bg-cyan hover:bg-cyan/90 text-white">
+          {isCreating ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Zap className="w-4 h-4 mr-1" />}
+          Crear Semana Completa ({days.filter(d => d.title).length} días)
+        </Button>
+      </form>
+    </div>
+  )
+}
+
+// ── Duplicate Week ──────────────────────
+function DuplicateWeekForm() {
+  const { coachAthletes, selectedAthleteId, duplicateWeek, setCoachView } = useAppStore()
+  const sourceAthlete = coachAthletes.find(a => a.id === selectedAthleteId)
+  const [targetAthleteId, setTargetAthleteId] = useState(selectedAthleteId || '')
+  const [sourceWeekId, setSourceWeekId] = useState(sourceAthlete?.weeks[0]?.id || '')
+  const [newWeekNumber, setNewWeekNumber] = useState('')
+  const [newWeekType, setNewWeekType] = useState('')
+  const [isCreating, setIsCreating] = useState(false)
+
+  const sourceWeek = sourceAthlete?.weeks.find(w => w.id === sourceWeekId)
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!sourceWeekId || !targetAthleteId) return
+    setIsCreating(true)
+    try {
+      const wn = newWeekNumber ? parseInt(newWeekNumber) : (sourceWeek?.weekNumber || 1)
+      const wt = newWeekType || (sourceWeek?.weekType || 'BASE')
+      await duplicateWeek(sourceWeekId, targetAthleteId, wn, wt)
+      toast.success('Semana duplicada correctamente')
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : 'Error al duplicar')
+    } finally {
+      setIsCreating(false)
+    }
+  }
+
+  return (
+    <div className="px-5 py-5 space-y-5 fade-in">
+      <button onClick={() => setCoachView('athlete-detail')} className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors">
+        <ChevronLeft className="w-4 h-4" /> Atleta
+      </button>
+
+      <div className="flex items-center gap-2">
+        <Copy className="w-5 h-5 text-cyan" />
+        <h2 className="text-xl font-bold tracking-tight">Duplicar Semana</h2>
+      </div>
+      <p className="text-xs text-muted-foreground">Copiá una semana existente para el mismo atleta u otro.</p>
 
       <form onSubmit={handleSubmit} className="space-y-4">
         <div className="space-y-2">
-          <Label className="text-xs font-semibold text-muted-foreground">Número de semana</Label>
-          <Input
-            value={weekNumber}
-            onChange={e => setWeekNumber(e.target.value)}
-            placeholder="1"
-            type="number"
-            min="1"
-            className="h-11 bg-muted/30 border-0 focus-visible:ring-cyan/30 rounded-xl"
-          />
-        </div>
-
-        <div className="space-y-2">
-          <Label className="text-xs font-semibold text-muted-foreground">Tipo de semana</Label>
-          <div className="grid grid-cols-2 gap-2">
-            {weekTypes.map(type => (
-              <button
-                key={type}
-                type="button"
-                onClick={() => setWeekType(type)}
-                className={cn(
-                  'p-3 rounded-xl text-xs font-semibold border-2 transition-all',
-                  weekType === type
-                    ? 'border-cyan bg-cyan/5 text-cyan'
-                    : 'border-transparent bg-muted/50 text-muted-foreground hover:bg-muted'
-                )}
-              >
-                {type}
+          <Label className="text-xs font-semibold text-muted-foreground">Semana origen</Label>
+          <div className="space-y-1.5">
+            {sourceAthlete?.weeks.map(week => (
+              <button key={week.id} type="button" onClick={() => { setSourceWeekId(week.id); setNewWeekType(week.weekType) }}
+                className={cn('w-full text-left p-3 rounded-xl border-2 transition-all',
+                  sourceWeekId === week.id ? 'border-cyan bg-cyan/5' : 'border-border/40 bg-card hover:border-border')}>
+                <div className="flex items-center gap-2">
+                  <Calendar className="w-3.5 h-3.5 text-cyan" />
+                  <span className="text-sm font-semibold">Semana {week.weekNumber}</span>
+                  <Badge className={cn('text-[9px] font-semibold border', getWeekTypeColor(week.weekType))}>{week.weekType}</Badge>
+                  <span className="text-[10px] text-muted-foreground ml-auto">{week.days.length} días</span>
+                </div>
               </button>
             ))}
           </div>
         </div>
 
         <div className="space-y-2">
-          <Label className="text-xs font-semibold text-muted-foreground">Fecha de inicio</Label>
-          <Input
-            value={startDate}
-            onChange={e => setStartDate(e.target.value)}
-            type="date"
-            className="h-11 bg-muted/30 border-0 focus-visible:ring-cyan/30 rounded-xl"
-          />
+          <Label className="text-xs font-semibold text-muted-foreground">Copiar a atleta</Label>
+          <div className="space-y-1.5">
+            {coachAthletes.map(athlete => (
+              <button key={athlete.id} type="button" onClick={() => setTargetAthleteId(athlete.id)}
+                className={cn('w-full text-left p-3 rounded-xl border-2 transition-all',
+                  targetAthleteId === athlete.id ? 'border-cyan bg-cyan/5' : 'border-border/40 bg-card hover:border-border')}>
+                <div className="flex items-center gap-2">
+                  <div className="w-7 h-7 rounded-lg bg-cyan/10 text-cyan flex items-center justify-center text-xs font-bold">{athlete.name.charAt(0)}</div>
+                  <span className="text-sm font-semibold">{athlete.name}</span>
+                </div>
+              </button>
+            ))}
+          </div>
         </div>
 
-        <Button
-          type="submit"
-          disabled={!weekNumber || !weekType || isCreating}
-          className="w-full h-11 rounded-xl text-sm font-semibold bg-cyan hover:bg-cyan/90 text-white"
-        >
-          {isCreating ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Plus className="w-4 h-4 mr-1" />}
-          Crear Semana
+        <div className="grid grid-cols-2 gap-3">
+          <div className="space-y-1">
+            <Label className="text-[10px] font-semibold text-muted-foreground">Nueva semana Nº (opcional)</Label>
+            <Input value={newWeekNumber} onChange={e => setNewWeekNumber(e.target.value)} placeholder={String(sourceWeek?.weekNumber || '')} type="number" min="1"
+              className="h-10 bg-muted/30 border-0 focus-visible:ring-cyan/30 rounded-lg text-sm" />
+          </div>
+          <div className="space-y-1">
+            <Label className="text-[10px] font-semibold text-muted-foreground">Tipo (opcional)</Label>
+            <div className="grid grid-cols-2 gap-1">
+              {weekTypes.map(type => (
+                <button key={type} type="button" onClick={() => setNewWeekType(type)}
+                  className={cn('p-1.5 rounded-lg text-[9px] font-semibold border-2 transition-all',
+                    (newWeekType || sourceWeek?.weekType) === type ? 'border-cyan bg-cyan/5 text-cyan' : 'border-transparent bg-muted/50 text-muted-foreground')}>{type}</button>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        <Button type="submit" disabled={!sourceWeekId || !targetAthleteId || isCreating} className="w-full h-11 rounded-xl text-sm font-semibold bg-cyan hover:bg-cyan/90 text-white">
+          {isCreating ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Copy className="w-4 h-4 mr-1" />}
+          Duplicar Semana
         </Button>
       </form>
     </div>
@@ -408,53 +656,31 @@ function WeekDetail() {
   const athlete = coachAthletes.find(a => a.id === selectedAthleteId)
   const week = athlete?.weeks.find(w => w.id === selectedWeekId)
 
-  if (!week || !athlete) {
-    setCoachView('athletes')
-    return null
-  }
+  if (!week || !athlete) { setCoachView('athletes'); return null }
 
   return (
     <div className="px-5 py-5 space-y-5 fade-in">
-      <button
-        onClick={() => setCoachView('athlete-detail')}
-        className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors"
-      >
+      <button onClick={() => setCoachView('athlete-detail')} className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors">
         <ChevronLeft className="w-4 h-4" /> {athlete.name}
       </button>
-
       <div>
-        <h2 className="text-lg font-bold">
-          Semana {week.weekNumber}
-          <Badge className={cn('ml-2 text-[10px] font-semibold border', getWeekTypeColor(week.weekType))}>
-            {week.weekType}
-          </Badge>
+        <h2 className="text-lg font-bold">Semana {week.weekNumber}
+          <Badge className={cn('ml-2 text-[10px] font-semibold border', getWeekTypeColor(week.weekType))}>{week.weekType}</Badge>
         </h2>
       </div>
-
       <div className="flex items-center justify-between">
         <span className="text-sm text-muted-foreground">{week.days.length} días</span>
-        <Button
-          onClick={() => setCoachView('create-day')}
-          className="h-8 rounded-xl text-xs font-semibold bg-cyan hover:bg-cyan/90 text-white"
-        >
-          <Plus className="w-3 h-3 mr-1" /> Nuevo Día
+        <Button onClick={() => setCoachView('create-day')} className="h-8 rounded-xl text-xs font-semibold bg-cyan hover:bg-cyan/90 text-white">
+          <Plus className="w-3 h-3 mr-1" /> Agregar Día
         </Button>
       </div>
-
       <div className="space-y-2">
         {week.days.map(day => (
-          <div
-            key={day.id}
-            className="rounded-2xl border border-border/60 bg-card p-4 space-y-2"
-          >
+          <div key={day.id} className="rounded-2xl border border-border/60 bg-card p-4 space-y-2">
             <div className="flex items-start justify-between">
               <div className="flex items-center gap-2">
-                <div className={cn(
-                  'w-8 h-8 rounded-lg flex items-center justify-center',
-                  day.isKeySession ? 'bg-orange-50 text-orange-500' :
-                  day.isLongRun ? 'bg-emerald-50 text-emerald-600' :
-                  'bg-cyan/10 text-cyan'
-                )}>
+                <div className={cn('w-8 h-8 rounded-lg flex items-center justify-center',
+                  day.isKeySession ? 'bg-orange-50 text-orange-500' : day.isLongRun ? 'bg-emerald-50 text-emerald-600' : 'bg-cyan/10 text-cyan')}>
                   {getTypeIcon(day.type)}
                 </div>
                 <div>
@@ -466,19 +692,8 @@ function WeekDetail() {
                   <h4 className="text-sm font-semibold">{day.title}</h4>
                 </div>
               </div>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="w-7 h-7 text-muted-foreground/50 hover:text-destructive"
-                onClick={async () => {
-                  if (confirm('¿Eliminar este día?')) {
-                    try {
-                      await deleteItem('deleteDay', day.id)
-                      toast.success('Día eliminado')
-                    } catch { toast.error('Error al eliminar') }
-                  }
-                }}
-              >
+              <Button variant="ghost" size="icon" className="w-7 h-7 text-muted-foreground/50 hover:text-destructive"
+                onClick={async () => { if (confirm('¿Eliminar este día?')) { try { await deleteItem('deleteDay', day.id); toast.success('Día eliminado') } catch { toast.error('Error') } } }}>
                 <Trash2 className="w-3.5 h-3.5" />
               </Button>
             </div>
@@ -492,7 +707,6 @@ function WeekDetail() {
             </div>
           </div>
         ))}
-
         {week.days.length === 0 && (
           <div className="text-center py-8">
             <Calendar className="w-8 h-8 text-muted-foreground/30 mx-auto mb-2" />
@@ -504,330 +718,94 @@ function WeekDetail() {
   )
 }
 
-// ── Create Day Form ──────────────────────
+// ── Create Day Form (single) ──────────────────────
 function CreateDayForm() {
   const { selectedWeekId, createDay, setCoachView } = useAppStore()
   const [form, setForm] = useState({
-    dayNumber: '1',
-    dayLabel: 'Día 1',
-    type: 'running',
-    title: '',
-    description: '',
-    distance: '',
-    terrain: '',
-    pace: '',
-    heartRateMin: '',
-    heartRateMax: '',
-    isKeySession: false,
-    isLongRun: false,
-    warmup: '',
-    mainBlock: '',
-    cooldown: '',
-    coachTip: '',
-    elevation: '',
-    intensity: '',
-    hydration: '',
-    recommendations: '',
+    dayNumber: '1', dayLabel: 'Día 1', type: 'running', title: '', description: '',
+    distance: '', terrain: '', pace: '', heartRateMin: '', heartRateMax: '',
+    isKeySession: false, isLongRun: false, warmup: '', mainBlock: '', cooldown: '',
+    coachTip: '', elevation: '', intensity: '', hydration: '', recommendations: '',
   })
   const [isCreating, setIsCreating] = useState(false)
 
   const updateForm = (key: string, value: string | boolean) => {
     setForm(prev => ({ ...prev, [key]: value }))
-    // Auto-update dayLabel when dayNumber changes
-    if (key === 'dayNumber') {
-      setForm(prev => ({ ...prev, dayLabel: `Día ${value}` }))
-    }
+    if (key === 'dayNumber') setForm(prev => ({ ...prev, dayLabel: `Día ${value}` }))
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!selectedWeekId || !form.title || !form.description) return
     setIsCreating(true)
-    try {
-      await createDay({
-        weekId: selectedWeekId,
-        ...form,
-      })
-      toast.success('Día de entrenamiento creado')
-    } catch (err: unknown) {
-      toast.error(err instanceof Error ? err.message : 'Error al crear día')
-    } finally {
-      setIsCreating(false)
-    }
+    try { await createDay({ weekId: selectedWeekId, ...form }); toast.success('Día creado') }
+    catch (err: unknown) { toast.error(err instanceof Error ? err.message : 'Error') }
+    finally { setIsCreating(false) }
   }
 
   return (
     <div className="px-5 py-5 space-y-5 fade-in">
-      <button
-        onClick={() => setCoachView('week-detail')}
-        className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors"
-      >
+      <button onClick={() => setCoachView('week-detail')} className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors">
         <ChevronLeft className="w-4 h-4" /> Semana
       </button>
-
       <h2 className="text-xl font-bold tracking-tight">Nuevo Día</h2>
-
       <form onSubmit={handleSubmit} className="space-y-4">
-        {/* Basic info */}
         <div className="space-y-3 rounded-2xl bg-card border border-border/60 p-4">
           <h4 className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Info básica</h4>
-
           <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1">
-              <Label className="text-[10px] font-semibold text-muted-foreground">Nº de día</Label>
-              <Input
-                value={form.dayNumber}
-                onChange={e => updateForm('dayNumber', e.target.value)}
-                type="number"
-                min="1"
-                className="h-10 bg-muted/30 border-0 focus-visible:ring-cyan/30 rounded-lg text-sm"
-              />
-            </div>
-            <div className="space-y-1">
-              <Label className="text-[10px] font-semibold text-muted-foreground">Etiqueta</Label>
-              <Input
-                value={form.dayLabel}
-                onChange={e => updateForm('dayLabel', e.target.value)}
-                placeholder="Día 1 o Lunes"
-                className="h-10 bg-muted/30 border-0 focus-visible:ring-cyan/30 rounded-lg text-sm"
-              />
-            </div>
+            <div className="space-y-1"><Label className="text-[10px] font-semibold text-muted-foreground">Nº de día</Label><Input value={form.dayNumber} onChange={e => updateForm('dayNumber', e.target.value)} type="number" min="1" className="h-10 bg-muted/30 border-0 focus-visible:ring-cyan/30 rounded-lg text-sm" /></div>
+            <div className="space-y-1"><Label className="text-[10px] font-semibold text-muted-foreground">Etiqueta</Label><Input value={form.dayLabel} onChange={e => updateForm('dayLabel', e.target.value)} placeholder="Día 1 o Lunes" className="h-10 bg-muted/30 border-0 focus-visible:ring-cyan/30 rounded-lg text-sm" /></div>
           </div>
-
-          <div className="space-y-1">
-            <Label className="text-[10px] font-semibold text-muted-foreground">Tipo</Label>
+          <div className="space-y-1"><Label className="text-[10px] font-semibold text-muted-foreground">Tipo</Label>
             <div className="grid grid-cols-4 gap-1.5">
-              {dayTypes.map(dt => {
-                const Icon = dt.icon
-                return (
-                  <button
-                    key={dt.value}
-                    type="button"
-                    onClick={() => updateForm('type', dt.value)}
-                    className={cn(
-                      'flex flex-col items-center gap-1 p-2.5 rounded-xl text-[10px] font-semibold border-2 transition-all',
-                      form.type === dt.value
-                        ? 'border-cyan bg-cyan/5 text-cyan'
-                        : 'border-transparent bg-muted/50 text-muted-foreground hover:bg-muted'
-                    )}
-                  >
-                    <Icon className="w-4 h-4" />
-                    {dt.label}
-                  </button>
-                )
-              })}
+              {dayTypes.map(dt => { const Icon = dt.icon; return (
+                <button key={dt.value} type="button" onClick={() => updateForm('type', dt.value)}
+                  className={cn('flex flex-col items-center gap-1 p-2.5 rounded-xl text-[10px] font-semibold border-2 transition-all',
+                    form.type === dt.value ? 'border-cyan bg-cyan/5 text-cyan' : 'border-transparent bg-muted/50 text-muted-foreground hover:bg-muted')}>
+                  <Icon className="w-4 h-4" />{dt.label}
+                </button>
+              )})}
             </div>
           </div>
-
-          <div className="space-y-1">
-            <Label className="text-[10px] font-semibold text-muted-foreground">Título *</Label>
-            <Input
-              value={form.title}
-              onChange={e => updateForm('title', e.target.value)}
-              placeholder="Ej: Rodaje Z2"
-              className="h-10 bg-muted/30 border-0 focus-visible:ring-cyan/30 rounded-lg text-sm"
-            />
-          </div>
-
-          <div className="space-y-1">
-            <Label className="text-[10px] font-semibold text-muted-foreground">Descripción *</Label>
-            <Textarea
-              value={form.description}
-              onChange={e => updateForm('description', e.target.value)}
-              placeholder="Breve descripción del entrenamiento"
-              className="min-h-[60px] bg-muted/30 border-0 focus-visible:ring-cyan/30 rounded-lg text-sm resize-none"
-            />
-          </div>
+          <div className="space-y-1"><Label className="text-[10px] font-semibold text-muted-foreground">Título *</Label><Input value={form.title} onChange={e => updateForm('title', e.target.value)} placeholder="Ej: Rodaje Z2" className="h-10 bg-muted/30 border-0 focus-visible:ring-cyan/30 rounded-lg text-sm" /></div>
+          <div className="space-y-1"><Label className="text-[10px] font-semibold text-muted-foreground">Descripción *</Label><Textarea value={form.description} onChange={e => updateForm('description', e.target.value)} placeholder="Breve descripción" className="min-h-[60px] bg-muted/30 border-0 focus-visible:ring-cyan/30 rounded-lg text-sm resize-none" /></div>
         </div>
-
-        {/* Stats */}
         <div className="space-y-3 rounded-2xl bg-card border border-border/60 p-4">
-          <h4 className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Datos del entrenamiento</h4>
-
+          <h4 className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Datos</h4>
           <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1">
-              <Label className="text-[10px] font-semibold text-muted-foreground">Distancia</Label>
-              <Input
-                value={form.distance}
-                onChange={e => updateForm('distance', e.target.value)}
-                placeholder="10 km"
-                className="h-10 bg-muted/30 border-0 focus-visible:ring-cyan/30 rounded-lg text-sm"
-              />
-            </div>
-            <div className="space-y-1">
-              <Label className="text-[10px] font-semibold text-muted-foreground">Terreno</Label>
-              <Input
-                value={form.terrain}
-                onChange={e => updateForm('terrain', e.target.value)}
-                placeholder="mixto, trail, pista"
-                className="h-10 bg-muted/30 border-0 focus-visible:ring-cyan/30 rounded-lg text-sm"
-              />
-            </div>
-            <div className="space-y-1">
-              <Label className="text-[10px] font-semibold text-muted-foreground">Ritmo</Label>
-              <Input
-                value={form.pace}
-                onChange={e => updateForm('pace', e.target.value)}
-                placeholder="conversacional"
-                className="h-10 bg-muted/30 border-0 focus-visible:ring-cyan/30 rounded-lg text-sm"
-              />
-            </div>
-            <div className="space-y-1">
-              <Label className="text-[10px] font-semibold text-muted-foreground">Intensidad</Label>
-              <Input
-                value={form.intensity}
-                onChange={e => updateForm('intensity', e.target.value)}
-                placeholder="Z2"
-                className="h-10 bg-muted/30 border-0 focus-visible:ring-cyan/30 rounded-lg text-sm"
-              />
-            </div>
-            <div className="space-y-1">
-              <Label className="text-[10px] font-semibold text-muted-foreground">FC mín</Label>
-              <Input
-                value={form.heartRateMin}
-                onChange={e => updateForm('heartRateMin', e.target.value)}
-                placeholder="140"
-                type="number"
-                className="h-10 bg-muted/30 border-0 focus-visible:ring-cyan/30 rounded-lg text-sm"
-              />
-            </div>
-            <div className="space-y-1">
-              <Label className="text-[10px] font-semibold text-muted-foreground">FC máx</Label>
-              <Input
-                value={form.heartRateMax}
-                onChange={e => updateForm('heartRateMax', e.target.value)}
-                placeholder="155"
-                type="number"
-                className="h-10 bg-muted/30 border-0 focus-visible:ring-cyan/30 rounded-lg text-sm"
-              />
-            </div>
+            <div className="space-y-1"><Label className="text-[10px] font-semibold text-muted-foreground">Distancia</Label><Input value={form.distance} onChange={e => updateForm('distance', e.target.value)} placeholder="10 km" className="h-10 bg-muted/30 border-0 focus-visible:ring-cyan/30 rounded-lg text-sm" /></div>
+            <div className="space-y-1"><Label className="text-[10px] font-semibold text-muted-foreground">Terreno</Label><Input value={form.terrain} onChange={e => updateForm('terrain', e.target.value)} placeholder="mixto" className="h-10 bg-muted/30 border-0 focus-visible:ring-cyan/30 rounded-lg text-sm" /></div>
+            <div className="space-y-1"><Label className="text-[10px] font-semibold text-muted-foreground">Ritmo</Label><Input value={form.pace} onChange={e => updateForm('pace', e.target.value)} placeholder="conversacional" className="h-10 bg-muted/30 border-0 focus-visible:ring-cyan/30 rounded-lg text-sm" /></div>
+            <div className="space-y-1"><Label className="text-[10px] font-semibold text-muted-foreground">Intensidad</Label><Input value={form.intensity} onChange={e => updateForm('intensity', e.target.value)} placeholder="Z2" className="h-10 bg-muted/30 border-0 focus-visible:ring-cyan/30 rounded-lg text-sm" /></div>
+            <div className="space-y-1"><Label className="text-[10px] font-semibold text-muted-foreground">FC mín</Label><Input value={form.heartRateMin} onChange={e => updateForm('heartRateMin', e.target.value)} placeholder="140" type="number" className="h-10 bg-muted/30 border-0 focus-visible:ring-cyan/30 rounded-lg text-sm" /></div>
+            <div className="space-y-1"><Label className="text-[10px] font-semibold text-muted-foreground">FC máx</Label><Input value={form.heartRateMax} onChange={e => updateForm('heartRateMax', e.target.value)} placeholder="155" type="number" className="h-10 bg-muted/30 border-0 focus-visible:ring-cyan/30 rounded-lg text-sm" /></div>
           </div>
-
-          <div className="space-y-1">
-            <Label className="text-[10px] font-semibold text-muted-foreground">Desnivel (trail)</Label>
-            <Input
-              value={form.elevation}
-              onChange={e => updateForm('elevation', e.target.value)}
-              placeholder="600m+"
-              className="h-10 bg-muted/30 border-0 focus-visible:ring-cyan/30 rounded-lg text-sm"
-            />
-          </div>
+          <div className="space-y-1"><Label className="text-[10px] font-semibold text-muted-foreground">Desnivel</Label><Input value={form.elevation} onChange={e => updateForm('elevation', e.target.value)} placeholder="600m+" className="h-10 bg-muted/30 border-0 focus-visible:ring-cyan/30 rounded-lg text-sm" /></div>
         </div>
-
-        {/* Session type */}
         <div className="space-y-3 rounded-2xl bg-card border border-border/60 p-4">
           <h4 className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Tipo de sesión</h4>
           <div className="flex gap-3">
-            <button
-              type="button"
-              onClick={() => {
-                updateForm('isKeySession', !form.isKeySession)
-                if (!form.isKeySession) updateForm('isLongRun', false)
-              }}
-              className={cn(
-                'flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-semibold border-2 transition-all',
-                form.isKeySession
-                  ? 'border-orange-400 bg-orange-50 text-orange-600'
-                  : 'border-transparent bg-muted/50 text-muted-foreground hover:bg-muted'
-              )}
-            >
-              <Flame className="w-4 h-4" /> Sesión Clave 🔥
+            <button type="button" onClick={() => { updateForm('isKeySession', !form.isKeySession); if (!form.isKeySession) updateForm('isLongRun', false) }}
+              className={cn('flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-semibold border-2 transition-all', form.isKeySession ? 'border-orange-400 bg-orange-50 text-orange-600' : 'border-transparent bg-muted/50 text-muted-foreground')}>
+              <Flame className="w-4 h-4" /> 🔥 Clave
             </button>
-            <button
-              type="button"
-              onClick={() => {
-                updateForm('isLongRun', !form.isLongRun)
-                if (!form.isLongRun) updateForm('isKeySession', false)
-              }}
-              className={cn(
-                'flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-semibold border-2 transition-all',
-                form.isLongRun
-                  ? 'border-emerald-400 bg-emerald-50 text-emerald-600'
-                  : 'border-transparent bg-muted/50 text-muted-foreground hover:bg-muted'
-              )}
-            >
-              <Mountain className="w-4 h-4" /> Fondo Largo ⛰️
+            <button type="button" onClick={() => { updateForm('isLongRun', !form.isLongRun); if (!form.isLongRun) updateForm('isKeySession', false) }}
+              className={cn('flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-semibold border-2 transition-all', form.isLongRun ? 'border-emerald-400 bg-emerald-50 text-emerald-600' : 'border-transparent bg-muted/50 text-muted-foreground')}>
+              <Mountain className="w-4 h-4" /> ⛰️ Fondo
             </button>
           </div>
         </div>
-
-        {/* Session structure (for key sessions) */}
         <div className="space-y-3 rounded-2xl bg-card border border-border/60 p-4">
-          <h4 className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Estructura de sesión</h4>
-
-          <div className="space-y-1">
-            <Label className="text-[10px] font-semibold text-muted-foreground">Calentamiento</Label>
-            <Textarea
-              value={form.warmup}
-              onChange={e => updateForm('warmup', e.target.value)}
-              placeholder="15 min de trote suave + movilidad"
-              className="min-h-[50px] bg-muted/30 border-0 focus-visible:ring-cyan/30 rounded-lg text-sm resize-none"
-            />
-          </div>
-
-          <div className="space-y-1">
-            <Label className="text-[10px] font-semibold text-muted-foreground">Bloque principal</Label>
-            <Textarea
-              value={form.mainBlock}
-              onChange={e => updateForm('mainBlock', e.target.value)}
-              placeholder="8 × 2 min en subida a ritmo fuerte..."
-              className="min-h-[70px] bg-muted/30 border-0 focus-visible:ring-cyan/30 rounded-lg text-sm resize-none"
-            />
-          </div>
-
-          <div className="space-y-1">
-            <Label className="text-[10px] font-semibold text-muted-foreground">Vuelta a la calma</Label>
-            <Textarea
-              value={form.cooldown}
-              onChange={e => updateForm('cooldown', e.target.value)}
-              placeholder="10 min de trote suave + estiramientos"
-              className="min-h-[50px] bg-muted/30 border-0 focus-visible:ring-cyan/30 rounded-lg text-sm resize-none"
-            />
-          </div>
+          <h4 className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Estructura y extras</h4>
+          <div className="space-y-1"><Label className="text-[10px] font-semibold text-muted-foreground">Calentamiento</Label><Textarea value={form.warmup} onChange={e => updateForm('warmup', e.target.value)} placeholder="15 min trote suave" className="min-h-[40px] bg-muted/30 border-0 focus-visible:ring-cyan/30 rounded-lg text-sm resize-none" /></div>
+          <div className="space-y-1"><Label className="text-[10px] font-semibold text-muted-foreground">Bloque principal</Label><Textarea value={form.mainBlock} onChange={e => updateForm('mainBlock', e.target.value)} placeholder="8 × 2 min subida..." className="min-h-[60px] bg-muted/30 border-0 focus-visible:ring-cyan/30 rounded-lg text-sm resize-none" /></div>
+          <div className="space-y-1"><Label className="text-[10px] font-semibold text-muted-foreground">Vuelta a la calma</Label><Textarea value={form.cooldown} onChange={e => updateForm('cooldown', e.target.value)} placeholder="10 min trote suave" className="min-h-[40px] bg-muted/30 border-0 focus-visible:ring-cyan/30 rounded-lg text-sm resize-none" /></div>
+          <div className="space-y-1"><Label className="text-[10px] font-semibold text-muted-foreground">Tip del entrenador</Label><Textarea value={form.coachTip} onChange={e => updateForm('coachTip', e.target.value)} placeholder="Mensaje motivador..." className="min-h-[40px] bg-muted/30 border-0 focus-visible:ring-cyan/30 rounded-lg text-sm resize-none" /></div>
+          <div className="space-y-1"><Label className="text-[10px] font-semibold text-muted-foreground">Hidratación</Label><Textarea value={form.hydration} onChange={e => updateForm('hydration', e.target.value)} placeholder="1.5L cada 20 min" className="min-h-[40px] bg-muted/30 border-0 focus-visible:ring-cyan/30 rounded-lg text-sm resize-none" /></div>
+          <div className="space-y-1"><Label className="text-[10px] font-semibold text-muted-foreground">Recomendaciones</Label><Textarea value={form.recommendations} onChange={e => updateForm('recommendations', e.target.value)} placeholder="• Empezá suave..." className="min-h-[40px] bg-muted/30 border-0 focus-visible:ring-cyan/30 rounded-lg text-sm resize-none" /></div>
         </div>
-
-        {/* Extra details */}
-        <div className="space-y-3 rounded-2xl bg-card border border-border/60 p-4">
-          <h4 className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Detalles extra</h4>
-
-          <div className="space-y-1">
-            <Label className="text-[10px] font-semibold text-muted-foreground">Tip del entrenador</Label>
-            <Textarea
-              value={form.coachTip}
-              onChange={e => updateForm('coachTip', e.target.value)}
-              placeholder="Un mensaje cercano y motivador..."
-              className="min-h-[50px] bg-muted/30 border-0 focus-visible:ring-cyan/30 rounded-lg text-sm resize-none"
-            />
-          </div>
-
-          <div className="space-y-1">
-            <Label className="text-[10px] font-semibold text-muted-foreground">Hidratación</Label>
-            <Textarea
-              value={form.hydration}
-              onChange={e => updateForm('hydration', e.target.value)}
-              placeholder="Recomendaciones de hidratación..."
-              className="min-h-[40px] bg-muted/30 border-0 focus-visible:ring-cyan/30 rounded-lg text-sm resize-none"
-            />
-          </div>
-
-          <div className="space-y-1">
-            <Label className="text-[10px] font-semibold text-muted-foreground">Recomendaciones</Label>
-            <Textarea
-              value={form.recommendations}
-              onChange={e => updateForm('recommendations', e.target.value)}
-              placeholder="Recomendaciones generales para el atleta..."
-              className="min-h-[50px] bg-muted/30 border-0 focus-visible:ring-cyan/30 rounded-lg text-sm resize-none"
-            />
-          </div>
-        </div>
-
-        <Button
-          type="submit"
-          disabled={!form.title || !form.description || isCreating}
-          className="w-full h-11 rounded-xl text-sm font-semibold bg-cyan hover:bg-cyan/90 text-white"
-        >
-          {isCreating ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Plus className="w-4 h-4 mr-1" />}
-          Crear Día de Entrenamiento
+        <Button type="submit" disabled={!form.title || !form.description || isCreating} className="w-full h-11 rounded-xl text-sm font-semibold bg-cyan hover:bg-cyan/90 text-white">
+          {isCreating ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Plus className="w-4 h-4 mr-1" />} Crear Día
         </Button>
       </form>
     </div>
@@ -840,35 +818,25 @@ export function CoachPanel() {
 
   return (
     <div className="min-h-screen flex flex-col bg-background max-w-lg mx-auto relative">
-      {/* Coach Header */}
       <header className="sticky top-0 z-40 bg-background/80 backdrop-blur-xl border-b border-border/50">
         <div className="flex items-center justify-between px-5 py-3">
           <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-lg bg-cyan/10 flex items-center justify-center">
-              <Mountain className="w-4 h-4 text-cyan" />
-            </div>
+            <div className="w-8 h-8 rounded-lg bg-cyan/10 flex items-center justify-center"><Mountain className="w-4 h-4 text-cyan" /></div>
             <div>
               <span className="text-sm font-bold tracking-tight">ASCENT</span>
               <span className="text-[10px] tracking-[0.2em] text-cyan ml-1.5 font-semibold">ENTRENADOR</span>
             </div>
           </div>
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={logout}
-            className="w-8 h-8 text-muted-foreground hover:text-foreground"
-          >
-            <LogOut className="w-4 h-4" />
-          </Button>
+          <Button variant="ghost" size="icon" onClick={logout} className="w-8 h-8 text-muted-foreground hover:text-foreground"><LogOut className="w-4 h-4" /></Button>
         </div>
       </header>
-
-      {/* Main content */}
       <main className="flex-1 overflow-y-auto custom-scrollbar pb-8">
         {coachView === 'athletes' && <AthletesList />}
         {coachView === 'create-athlete' && <CreateAthleteForm />}
         {coachView === 'athlete-detail' && <AthleteDetail />}
         {coachView === 'create-week' && <CreateWeekForm />}
+        {coachView === 'quick-week' && <QuickWeekForm />}
+        {coachView === 'duplicate-week' && <DuplicateWeekForm />}
         {coachView === 'week-detail' && <WeekDetail />}
         {coachView === 'create-day' && <CreateDayForm />}
       </main>

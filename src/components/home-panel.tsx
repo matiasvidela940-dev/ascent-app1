@@ -15,6 +15,8 @@ import {
   Timer,
   Heart,
   Route,
+  Flag,
+  Trophy,
 } from '@/lib/icons'
 import { cn } from '@/lib/utils'
 
@@ -56,9 +58,32 @@ export function HomePanel() {
     <div className="px-5 py-5 space-y-6 fade-in">
       {/* Greeting */}
       <div className="space-y-1">
-        <p className="text-sm text-muted-foreground font-medium">Hola,</p>
+        <div className="flex items-center gap-2">
+          <p className="text-sm text-muted-foreground font-medium">Hola,</p>
+          {athlete?.level && (
+            <Badge className={cn('text-[9px] font-bold border',
+              athlete.level === 'ELITE' ? 'bg-rose-50 text-rose-600 border-rose-200' :
+              athlete.level === 'INTERMEDIO' ? 'bg-cyan/10 text-cyan border-cyan/20' :
+              'bg-emerald-50 text-emerald-600 border-emerald-200'
+            )}>{athlete.level}</Badge>
+          )}
+        </div>
         <h1 className="text-2xl font-bold tracking-tight">{athlete?.name?.split(' ')[0]}</h1>
       </div>
+
+      {/* Race target */}
+      {athlete?.targetRace && (
+        <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-cyan/5 border border-cyan/15">
+          <Trophy className="w-3.5 h-3.5 text-cyan" />
+          <div className="flex-1 min-w-0">
+            <p className="text-xs font-semibold text-cyan truncate">{athlete.targetRace}</p>
+            {athlete.raceDate && (
+              <p className="text-[10px] text-muted-foreground">{new Date(athlete.raceDate).toLocaleDateString('es-AR', { day: 'numeric', month: 'short', year: 'numeric' })}</p>
+            )}
+          </div>
+          <Flag className="w-3.5 h-3.5 text-cyan/40" />
+        </div>
+      )}
 
       {/* Week Status */}
       <div className="flex items-center gap-3">

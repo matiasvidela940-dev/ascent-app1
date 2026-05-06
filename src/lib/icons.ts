@@ -32,4 +32,9 @@ export {
   Trash2,
   Plus,
   Copy,
+  Target,
+  Flag,
+  Trophy,
+  Pencil,
+  Sparkles,
 } from 'lucide-react'

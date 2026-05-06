@@ -12,6 +12,9 @@ model Athlete {
   name       String
   email      String         @unique
   accessCode String         @unique
+  level      String         @default("INTERMEDIO") // ELITE, INTERMEDIO, AMATEUR
+  targetRace String?        // Nombre de la carrera objetivo
+  raceDate   DateTime?      // Fecha de la carrera
   createdAt  DateTime       @default(now())
   updatedAt  DateTime       @updatedAt
   weeks      TrainingWeek[]

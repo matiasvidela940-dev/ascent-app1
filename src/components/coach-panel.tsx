@@ -1,6 +1,6 @@
 'use client'
 
-import { useAppStore, CoachAthleteData, WeekData, TrainingDayData } from '@/lib/store'
+import { useAppStore, CoachAthleteData } from '@/lib/store'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
@@ -24,12 +24,22 @@ import {
   MessageSquare,
   Zap,
   Copy,
+  Target,
+  Flag,
+  Trophy,
+  Pencil,
+  Sparkles,
 } from '@/lib/icons'
 import { cn } from '@/lib/utils'
 import { useState } from 'react'
 import { toast } from 'sonner'
 
 const weekTypes = ['BASE', 'CARGA', 'PICO', 'DESCARGA']
+const levels = [
+  { value: 'ELITE', label: 'Elite', desc: '100+ km/sem', color: 'bg-rose-50 text-rose-600 border-rose-200' },
+  { value: 'INTERMEDIO', label: 'Intermedio', desc: '40-70 km/sem', color: 'bg-cyan/10 text-cyan border-cyan/20' },
+  { value: 'AMATEUR', label: 'Amateur', desc: '20-35 km/sem', color: 'bg-emerald-50 text-emerald-600 border-emerald-200' },
+]
 const dayTypes = [
   { value: 'running', label: 'Running', icon: Footprints },
   { value: 'trail', label: 'Trail', icon: Mountain },
@@ -37,7 +47,7 @@ const dayTypes = [
   { value: 'descanso', label: 'Descanso', icon: BedDouble },
 ]
 
-// ── Week templates ──────────────────────────────
+// ── Week templates per level ──────────────────────────────
 const weekTemplates: Record<string, Array<{
   type: string; title: string; description: string; distance: string;
   terrain: string; pace: string; intensity: string; heartRateMin: string; heartRateMax: string;
@@ -103,9 +113,70 @@ function getWeekTypeColor(type: string) {
   }
 }
 
+function getLevelColor(level: string) {
+  const l = levels.find(lv => lv.value === level)
+  return l?.color || 'bg-muted text-muted-foreground'
+}
+
+function getLevelLabel(level: string) {
+  const l = levels.find(lv => lv.value === level)
+  return l?.label || level
+}
+
+function getLevelDesc(level: string) {
+  const l = levels.find(lv => lv.value === level)
+  return l?.desc || ''
+}
+
 // ── Athletes List ──────────────────────────────
 function AthletesList() {
   const { coachAthletes, selectAthlete, setCoachView } = useAppStore()
+
+  // Group by level
+  const eliteAthletes = coachAthletes.filter(a => a.level === 'ELITE')
+  const intermedioAthletes = coachAthletes.filter(a => a.level === 'INTERMEDIO')
+  const amateurAthletes = coachAthletes.filter(a => a.level === 'AMATEUR' || !a.level)
+
+  const renderGroup = (title: string, athletes: CoachAthleteData[], colorClass: string) => (
+    athletes.length > 0 && (
+      <div className="space-y-2">
+        <div className="flex items-center gap-2">
+          <Badge className={cn('text-[10px] font-semibold border', colorClass)}>{title}</Badge>
+          <span className="text-[10px] text-muted-foreground">{athletes.length} atleta{athletes.length !== 1 ? 's' : ''}</span>
+        </div>
+        {athletes.map(athlete => (
+          <button
+            key={athlete.id}
+            onClick={() => selectAthlete(athlete.id)}
+            className="w-full text-left rounded-2xl border border-border/60 bg-card p-4 hover:shadow-md hover:border-cyan/20 transition-all duration-200"
+          >
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-cyan/10 text-cyan flex items-center justify-center font-bold text-sm">
+                {athlete.name.charAt(0)}
+              </div>
+              <div className="flex-1 min-w-0">
+                <h3 className="text-sm font-semibold">{athlete.name}</h3>
+                <div className="flex items-center gap-1.5 mt-0.5">
+                  <span className="text-[10px] text-muted-foreground">{athlete.accessCode}</span>
+                  {athlete.targetRace && (
+                    <>
+                      <span className="text-[10px] text-muted-foreground/40">·</span>
+                      <span className="text-[10px] text-cyan font-medium flex items-center gap-0.5">
+                        <Flag className="w-2.5 h-2.5" /> {athlete.targetRace}
+                      </span>
+                    </>
+                  )}
+                </div>
+              </div>
+              <div className="text-right">
+                <p className="text-xs font-medium text-cyan">{athlete.weeks.length} sem.</p>
+              </div>
+            </div>
+          </button>
+        ))}
+      </div>
+    )
+  )
 
   return (
     <div className="px-5 py-5 space-y-5 fade-in">
@@ -123,42 +194,21 @@ function AthletesList() {
         </Button>
       </div>
 
-      <div className="space-y-2">
-        {coachAthletes.map(athlete => (
-          <button
-            key={athlete.id}
-            onClick={() => selectAthlete(athlete.id)}
-            className="w-full text-left rounded-2xl border border-border/60 bg-card p-4 hover:shadow-md hover:border-cyan/20 transition-all duration-200"
-          >
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-cyan/10 text-cyan flex items-center justify-center font-bold text-sm">
-                {athlete.name.charAt(0)}
-              </div>
-              <div className="flex-1 min-w-0">
-                <h3 className="text-sm font-semibold">{athlete.name}</h3>
-                <p className="text-xs text-muted-foreground">{athlete.email} · {athlete.accessCode}</p>
-              </div>
-              <div className="text-right">
-                <p className="text-xs font-medium text-cyan">{athlete.weeks.length} sem.</p>
-              </div>
-            </div>
-          </button>
-        ))}
-
-        {coachAthletes.length === 0 && (
-          <div className="text-center py-12">
-            <Users className="w-10 h-10 text-muted-foreground/30 mx-auto mb-3" />
-            <p className="text-sm text-muted-foreground">No hay atletas aún</p>
-            <Button
-              onClick={() => setCoachView('create-athlete')}
-              variant="outline"
-              className="mt-3 rounded-xl text-xs"
-            >
-              <Plus className="w-3 h-3 mr-1" /> Crear primer atleta
-            </Button>
-          </div>
-        )}
+      <div className="space-y-4">
+        {renderGroup('ELITE · 100+ km/sem', eliteAthletes, 'bg-rose-50 text-rose-600 border-rose-200')}
+        {renderGroup('INTERMEDIO · 40-70 km/sem', intermedioAthletes, 'bg-cyan/10 text-cyan border-cyan/20')}
+        {renderGroup('AMATEUR · 20-35 km/sem', amateurAthletes, 'bg-emerald-50 text-emerald-600 border-emerald-200')}
       </div>
+
+      {coachAthletes.length === 0 && (
+        <div className="text-center py-12">
+          <Users className="w-10 h-10 text-muted-foreground/30 mx-auto mb-3" />
+          <p className="text-sm text-muted-foreground">No hay atletas aún</p>
+          <Button onClick={() => setCoachView('create-athlete')} variant="outline" className="mt-3 rounded-xl text-xs">
+            <Plus className="w-3 h-3 mr-1" /> Crear primer atleta
+          </Button>
+        </div>
+      )}
     </div>
   )
 }
@@ -169,6 +219,7 @@ function CreateAthleteForm() {
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
   const [accessCode, setAccessCode] = useState('')
+  const [level, setLevel] = useState('INTERMEDIO')
   const [isCreating, setIsCreating] = useState(false)
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -176,7 +227,7 @@ function CreateAthleteForm() {
     if (!name || !email || !accessCode) return
     setIsCreating(true)
     try {
-      await createAthlete(name, email, accessCode)
+      await createAthlete(name, email, accessCode, level)
       toast.success('Atleta creado correctamente')
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : 'Error al crear atleta')
@@ -205,6 +256,19 @@ function CreateAthleteForm() {
           <Input value={accessCode} onChange={e => setAccessCode(e.target.value.toUpperCase())} placeholder="Ej: ASCENT03" className="h-11 bg-muted/30 border-0 focus-visible:ring-cyan/30 rounded-xl uppercase" />
           <p className="text-[10px] text-muted-foreground/60">El atleta usará este código para ingresar</p>
         </div>
+        <div className="space-y-2">
+          <Label className="text-xs font-semibold text-muted-foreground">Nivel</Label>
+          <div className="grid grid-cols-3 gap-2">
+            {levels.map(lv => (
+              <button key={lv.value} type="button" onClick={() => setLevel(lv.value)}
+                className={cn('flex flex-col items-center gap-0.5 p-3 rounded-xl border-2 transition-all',
+                  level === lv.value ? 'border-cyan bg-cyan/5' : 'border-transparent bg-muted/50 hover:bg-muted')}>
+                <span className={cn('text-xs font-bold', level === lv.value ? 'text-cyan' : 'text-muted-foreground')}>{lv.label}</span>
+                <span className="text-[9px] text-muted-foreground">{lv.desc}</span>
+              </button>
+            ))}
+          </div>
+        </div>
         <Button type="submit" disabled={!name || !email || !accessCode || isCreating} className="w-full h-11 rounded-xl text-sm font-semibold bg-cyan hover:bg-cyan/90 text-white">
           {isCreating ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Plus className="w-4 h-4 mr-1" />} Crear Atleta
         </Button>
@@ -213,9 +277,94 @@ function CreateAthleteForm() {
   )
 }
 
+// ── Edit Athlete Form ──────────────────────
+function EditAthleteForm() {
+  const { coachAthletes, selectedAthleteId, updateAthlete, setCoachView } = useAppStore()
+  const athlete = coachAthletes.find(a => a.id === selectedAthleteId)
+  const [name, setName] = useState(athlete?.name || '')
+  const [email, setEmail] = useState(athlete?.email || '')
+  const [level, setLevel] = useState(athlete?.level || 'INTERMEDIO')
+  const [targetRace, setTargetRace] = useState(athlete?.targetRace || '')
+  const [raceDate, setRaceDate] = useState(athlete?.raceDate ? new Date(athlete.raceDate).toISOString().split('T')[0] : '')
+  const [isSaving, setIsSaving] = useState(false)
+
+  if (!athlete) { setCoachView('athletes'); return null }
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setIsSaving(true)
+    try {
+      await updateAthlete(athlete.id, name, email, level, targetRace, raceDate)
+      toast.success('Atleta actualizado')
+      setCoachView('athlete-detail')
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : 'Error al guardar')
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
+  return (
+    <div className="px-5 py-5 space-y-5 fade-in">
+      <button onClick={() => setCoachView('athlete-detail')} className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors">
+        <ChevronLeft className="w-4 h-4" /> {athlete.name}
+      </button>
+
+      <div className="flex items-center gap-2">
+        <Pencil className="w-5 h-5 text-cyan" />
+        <h2 className="text-xl font-bold tracking-tight">Editar Atleta</h2>
+      </div>
+
+      <form onSubmit={handleSubmit} className="space-y-4">
+        <div className="space-y-2">
+          <Label className="text-xs font-semibold text-muted-foreground">Nombre completo</Label>
+          <Input value={name} onChange={e => setName(e.target.value)} className="h-11 bg-muted/30 border-0 focus-visible:ring-cyan/30 rounded-xl" />
+        </div>
+        <div className="space-y-2">
+          <Label className="text-xs font-semibold text-muted-foreground">Email</Label>
+          <Input value={email} onChange={e => setEmail(e.target.value)} type="email" className="h-11 bg-muted/30 border-0 focus-visible:ring-cyan/30 rounded-xl" />
+        </div>
+        <div className="space-y-2">
+          <Label className="text-xs font-semibold text-muted-foreground">Nivel</Label>
+          <div className="grid grid-cols-3 gap-2">
+            {levels.map(lv => (
+              <button key={lv.value} type="button" onClick={() => setLevel(lv.value)}
+                className={cn('flex flex-col items-center gap-0.5 p-3 rounded-xl border-2 transition-all',
+                  level === lv.value ? 'border-cyan bg-cyan/5' : 'border-transparent bg-muted/50 hover:bg-muted')}>
+                <span className={cn('text-xs font-bold', level === lv.value ? 'text-cyan' : 'text-muted-foreground')}>{lv.label}</span>
+                <span className="text-[9px] text-muted-foreground">{lv.desc}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="space-y-3 rounded-2xl bg-card border border-cyan/20 p-4">
+          <div className="flex items-center gap-2">
+            <Target className="w-4 h-4 text-cyan" />
+            <h4 className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Carrera Objetivo</h4>
+          </div>
+          <div className="space-y-2">
+            <Label className="text-[10px] font-semibold text-muted-foreground">Nombre de la carrera</Label>
+            <Input value={targetRace} onChange={e => setTargetRace(e.target.value)} placeholder="Ej: Ultra Trail Catedral 80K" className="h-10 bg-muted/30 border-0 focus-visible:ring-cyan/30 rounded-lg text-sm" />
+          </div>
+          <div className="space-y-2">
+            <Label className="text-[10px] font-semibold text-muted-foreground">Fecha de la carrera</Label>
+            <Input value={raceDate} onChange={e => setRaceDate(e.target.value)} type="date" className="h-10 bg-muted/30 border-0 focus-visible:ring-cyan/30 rounded-lg text-sm" />
+          </div>
+          <p className="text-[10px] text-muted-foreground/60">Definí una carrera objetivo para usar el Planificador de Carrera</p>
+        </div>
+
+        <Button type="submit" disabled={isSaving} className="w-full h-11 rounded-xl text-sm font-semibold bg-cyan hover:bg-cyan/90 text-white">
+          {isSaving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Check className="w-4 h-4 mr-1" />} Guardar Cambios
+        </Button>
+      </form>
+    </div>
+  )
+}
+
 // ── Athlete Detail (weeks) ──────────────────────
 function AthleteDetail() {
-  const { coachAthletes, selectedAthleteId, selectWeek, setCoachView, deleteItem, duplicateWeek } = useAppStore()
+  const { coachAthletes, selectedAthleteId, selectWeek, setCoachView, deleteItem } = useAppStore()
   const athlete = coachAthletes.find(a => a.id === selectedAthleteId)
 
   if (!athlete) { setCoachView('athletes'); return null }
@@ -230,22 +379,52 @@ function AthleteDetail() {
         <div className="w-12 h-12 rounded-2xl bg-cyan/10 text-cyan flex items-center justify-center font-bold text-lg">
           {athlete.name.charAt(0)}
         </div>
-        <div>
-          <h2 className="text-lg font-bold">{athlete.name}</h2>
-          <p className="text-xs text-muted-foreground">{athlete.email} · {athlete.accessCode}</p>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2">
+            <h2 className="text-lg font-bold">{athlete.name}</h2>
+            <Badge className={cn('text-[10px] font-semibold border', getLevelColor(athlete.level))}>
+              {getLevelLabel(athlete.level)}
+            </Badge>
+          </div>
+          <p className="text-xs text-muted-foreground">{getLevelDesc(athlete.level)} · {athlete.accessCode}</p>
         </div>
+        <Button variant="ghost" size="icon" onClick={() => setCoachView('athlete-edit')} className="w-9 h-9 text-muted-foreground hover:text-cyan">
+          <Pencil className="w-4 h-4" />
+        </Button>
+      </div>
+
+      {/* Race target card */}
+      {athlete.targetRace && (
+        <div className="rounded-2xl bg-gradient-to-r from-cyan/5 to-cyan/10 border border-cyan/20 p-4 space-y-2">
+          <div className="flex items-center gap-2">
+            <Trophy className="w-4 h-4 text-cyan" />
+            <span className="text-xs font-bold text-cyan uppercase tracking-wider">Carrera Objetivo</span>
+          </div>
+          <h3 className="text-sm font-semibold">{athlete.targetRace}</h3>
+          {athlete.raceDate && (
+            <p className="text-xs text-muted-foreground">
+              <Calendar className="w-3 h-3 inline mr-1" />
+              {new Date(athlete.raceDate).toLocaleDateString('es-AR', { day: 'numeric', month: 'long', year: 'numeric' })}
+            </p>
+          )}
+        </div>
+      )}
+
+      {/* Action buttons */}
+      <div className="grid grid-cols-2 gap-2">
+        <Button onClick={() => setCoachView('quick-week')} className="h-10 rounded-xl text-xs font-semibold bg-cyan hover:bg-cyan/90 text-white">
+          <Zap className="w-3.5 h-3.5 mr-1" /> Carga Rápida
+        </Button>
+        <Button onClick={() => setCoachView('race-planner')} className="h-10 rounded-xl text-xs font-semibold bg-gradient-to-r from-cyan to-cyan/80 text-white hover:opacity-90">
+          <Target className="w-3.5 h-3.5 mr-1" /> Planificar Carrera
+        </Button>
       </div>
 
       <div className="flex items-center justify-between">
         <h3 className="text-sm font-semibold">Planificaciones ({athlete.weeks.length})</h3>
-        <div className="flex gap-2">
-          <Button onClick={() => setCoachView('quick-week')} className="h-8 rounded-xl text-xs font-semibold bg-cyan hover:bg-cyan/90 text-white">
-            <Zap className="w-3 h-3 mr-1" /> Carga Rápida
-          </Button>
-          <Button onClick={() => setCoachView('create-week')} variant="outline" className="h-8 rounded-xl text-xs font-medium border-border/80">
-            <Plus className="w-3 h-3 mr-1" /> Semana vacía
-          </Button>
-        </div>
+        <Button onClick={() => setCoachView('create-week')} variant="outline" className="h-7 rounded-xl text-[10px] font-medium border-border/80 px-2">
+          <Plus className="w-3 h-3 mr-0.5" /> Semana vacía
+        </Button>
       </div>
 
       <div className="space-y-2">
@@ -303,6 +482,137 @@ function AthleteDetail() {
   )
 }
 
+// ── Race Planner ──────────────────────────────
+function RacePlanner() {
+  const { coachAthletes, selectedAthleteId, generateRacePlan, setCoachView } = useAppStore()
+  const athlete = coachAthletes.find(a => a.id === selectedAthleteId)
+
+  const [raceName, setRaceName] = useState(athlete?.targetRace || '')
+  const [raceDate, setRaceDate] = useState(athlete?.raceDate ? new Date(athlete.raceDate).toISOString().split('T')[0] : '')
+  const [totalWeeks, setTotalWeeks] = useState('8')
+  const [level, setLevel] = useState(athlete?.level || 'INTERMEDIO')
+  const [isCreating, setIsCreating] = useState(false)
+
+  // Generate preview of week types
+  const getWeekType = (weekIndex: number, total: number): string => {
+    const weeksFromRace = total - weekIndex
+    if (weeksFromRace <= 2) return 'DESCARGA'
+    if (weeksFromRace === 3) return 'PICO'
+    return weekIndex % 2 === 0 ? 'BASE' : 'CARGA'
+  }
+
+  const numWeeks = parseInt(totalWeeks) || 0
+  const previewWeeks = Array.from({ length: numWeeks }, (_, i) => ({
+    number: i + 1,
+    type: getWeekType(i, numWeeks),
+  }))
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!selectedAthleteId || !raceDate || !totalWeeks) return
+    setIsCreating(true)
+    try {
+      await generateRacePlan(selectedAthleteId, raceName, raceDate, totalWeeks, level)
+      toast.success(`¡Plan de ${totalWeeks} semanas generado para ${raceName || 'la carrera'}!`)
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : 'Error al generar plan')
+    } finally {
+      setIsCreating(false)
+    }
+  }
+
+  return (
+    <div className="px-5 py-5 space-y-5 fade-in">
+      <button onClick={() => setCoachView('athlete-detail')} className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors">
+        <ChevronLeft className="w-4 h-4" /> {athlete?.name || 'Atleta'}
+      </button>
+
+      <div className="flex items-center gap-2">
+        <Sparkles className="w-5 h-5 text-cyan" />
+        <h2 className="text-xl font-bold tracking-tight">Planificador de Carrera</h2>
+      </div>
+      <p className="text-xs text-muted-foreground">
+        Generá automáticamente todas las semanas de entrenamiento hacia atrás desde la fecha de la carrera, con la periodización correcta (BASE → CARGA → PICO → DESCARGA).
+      </p>
+
+      <form onSubmit={handleSubmit} className="space-y-4">
+        <div className="space-y-3 rounded-2xl bg-card border border-cyan/20 p-4">
+          <div className="flex items-center gap-2">
+            <Flag className="w-4 h-4 text-cyan" />
+            <h4 className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Datos de la Carrera</h4>
+          </div>
+          <div className="space-y-2">
+            <Label className="text-[10px] font-semibold text-muted-foreground">Nombre de la carrera</Label>
+            <Input value={raceName} onChange={e => setRaceName(e.target.value)} placeholder="Ej: Ultra Trail Catedral 80K" className="h-10 bg-muted/30 border-0 focus-visible:ring-cyan/30 rounded-lg text-sm" />
+          </div>
+          <div className="space-y-2">
+            <Label className="text-[10px] font-semibold text-muted-foreground">Fecha de la carrera</Label>
+            <Input value={raceDate} onChange={e => setRaceDate(e.target.value)} type="date" className="h-10 bg-muted/30 border-0 focus-visible:ring-cyan/30 rounded-lg text-sm" />
+          </div>
+        </div>
+
+        <div className="space-y-3 rounded-2xl bg-card border border-border/60 p-4">
+          <div className="flex items-center gap-2">
+            <Target className="w-4 h-4 text-cyan" />
+            <h4 className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Configuración del Plan</h4>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1">
+              <Label className="text-[10px] font-semibold text-muted-foreground">Semanas totales</Label>
+              <Input value={totalWeeks} onChange={e => setTotalWeeks(e.target.value)} type="number" min="4" max="20" className="h-10 bg-muted/30 border-0 focus-visible:ring-cyan/30 rounded-lg text-sm" />
+            </div>
+            <div className="space-y-1">
+              <Label className="text-[10px] font-semibold text-muted-foreground">Nivel del atleta</Label>
+              <div className="space-y-1">
+                {levels.map(lv => (
+                  <button key={lv.value} type="button" onClick={() => setLevel(lv.value)}
+                    className={cn('w-full flex items-center justify-between p-1.5 rounded-lg text-[10px] font-semibold border-2 transition-all',
+                      level === lv.value ? 'border-cyan bg-cyan/5 text-cyan' : 'border-transparent bg-muted/30 text-muted-foreground')}>
+                    <span>{lv.label}</span>
+                    <span className="text-[9px] opacity-60">{lv.desc}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Preview timeline */}
+        {numWeeks >= 4 && (
+          <div className="space-y-3 rounded-2xl bg-card border border-border/60 p-4">
+            <h4 className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Vista previa del plan</h4>
+            <div className="flex flex-wrap gap-1.5">
+              {previewWeeks.map(w => (
+                <div key={w.number} className="flex flex-col items-center gap-0.5">
+                  <span className="text-[9px] text-muted-foreground font-medium">S{w.number}</span>
+                  <Badge className={cn('text-[8px] font-bold border px-1.5 py-0', getWeekTypeColor(w.type))}>
+                    {w.type.slice(0, 3)}
+                  </Badge>
+                </div>
+              ))}
+            </div>
+            <div className="flex items-center gap-3 text-[10px] text-muted-foreground">
+              <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-cyan" /> BASE</span>
+              <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-amber-400" /> PICO</span>
+              <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-violet-400" /> DESCARGA</span>
+            </div>
+          </div>
+        )}
+
+        <div className="rounded-xl bg-amber-50 border border-amber-200 p-3 space-y-1">
+          <p className="text-[10px] font-semibold text-amber-700">⚡ Esto generará {numWeeks} semanas completas con 7 días cada una</p>
+          <p className="text-[10px] text-amber-600">Las plantillas se ajustan automáticamente al nivel del atleta ({getLevelLabel(level)}: {getLevelDesc(level)}). Podés editar cada día después.</p>
+        </div>
+
+        <Button type="submit" disabled={!raceDate || !totalWeeks || isCreating || numWeeks < 4} className="w-full h-12 rounded-xl text-sm font-semibold bg-gradient-to-r from-cyan to-cyan/80 text-white hover:opacity-90">
+          {isCreating ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Sparkles className="w-4 h-4 mr-1" />}
+          Generar Plan de {totalWeeks} Semanas
+        </Button>
+      </form>
+    </div>
+  )
+}
+
 // ── Create Week Form (empty) ──────────────────────
 function CreateWeekForm() {
   const { selectedAthleteId, createWeek, setCoachView } = useAppStore()
@@ -355,14 +665,14 @@ function CreateWeekForm() {
 
 // ── Quick Week Creation ──────────────────────
 function QuickWeekForm() {
-  const { selectedAthleteId, createWeekWithDays, setCoachView } = useAppStore()
+  const { selectedAthleteId, coachAthletes, createWeekWithDays, setCoachView } = useAppStore()
+  const athlete = coachAthletes.find(a => a.id === selectedAthleteId)
   const [weekNumber, setWeekNumber] = useState('1')
   const [weekType, setWeekType] = useState('CARGA')
   const [startDate, setStartDate] = useState(new Date().toISOString().split('T')[0])
   const [isCreating, setIsCreating] = useState(false)
   const [useTemplate, setUseTemplate] = useState(true)
 
-  // Initialize days from template
   const template = weekTemplates[weekType] || weekTemplates.BASE
   const [days, setDays] = useState(template.map((t, i) => ({ ...t, dayNumber: String(i + 1), dayLabel: `Día ${i + 1}` })))
 
@@ -398,13 +708,19 @@ function QuickWeekForm() {
         <ChevronLeft className="w-4 h-4" /> Atleta
       </button>
 
-      <div className="flex items-center gap-2">
-        <Zap className="w-5 h-5 text-cyan" />
-        <h2 className="text-xl font-bold tracking-tight">Carga Rápida</h2>
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <Zap className="w-5 h-5 text-cyan" />
+          <h2 className="text-xl font-bold tracking-tight">Carga Rápida</h2>
+        </div>
+        {athlete && (
+          <Badge className={cn('text-[10px] font-semibold border', getLevelColor(athlete.level))}>
+            {getLevelLabel(athlete.level)}
+          </Badge>
+        )}
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-4">
-        {/* Week config */}
         <div className="space-y-3 rounded-2xl bg-card border border-cyan/20 p-4">
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1">
@@ -443,7 +759,6 @@ function QuickWeekForm() {
           </div>
         </div>
 
-        {/* Day cards */}
         <div className="space-y-2">
           {days.map((day, index) => (
             <div key={index} className={cn(
@@ -458,12 +773,8 @@ function QuickWeekForm() {
                   {getTypeIcon(day.type, 'w-3.5 h-3.5')}
                 </div>
                 <span className="text-[10px] text-muted-foreground font-medium w-10">{day.dayLabel}</span>
-                <input
-                  value={day.title}
-                  onChange={e => updateDay(index, 'title', e.target.value)}
-                  placeholder="Título del entrenamiento"
-                  className="flex-1 text-sm font-semibold bg-transparent outline-none placeholder:text-muted-foreground/40"
-                />
+                <input value={day.title} onChange={e => updateDay(index, 'title', e.target.value)} placeholder="Título del entrenamiento"
+                  className="flex-1 text-sm font-semibold bg-transparent outline-none placeholder:text-muted-foreground/40" />
                 <div className="flex items-center gap-1">
                   {dayTypes.map(dt => {
                     const Icon = dt.icon
@@ -478,14 +789,8 @@ function QuickWeekForm() {
                   })}
                 </div>
               </div>
-
-              <input
-                value={day.description}
-                onChange={e => updateDay(index, 'description', e.target.value)}
-                placeholder="Descripción breve"
-                className="w-full text-xs bg-muted/20 rounded-lg px-2.5 py-1.5 outline-none focus:ring-1 focus:ring-cyan/30 placeholder:text-muted-foreground/40"
-              />
-
+              <input value={day.description} onChange={e => updateDay(index, 'description', e.target.value)} placeholder="Descripción breve"
+                className="w-full text-xs bg-muted/20 rounded-lg px-2.5 py-1.5 outline-none focus:ring-1 focus:ring-cyan/30 placeholder:text-muted-foreground/40" />
               <div className="flex flex-wrap gap-2">
                 <input value={day.distance || ''} onChange={e => updateDay(index, 'distance', e.target.value)} placeholder="10 km"
                   className="w-16 text-[10px] bg-muted/20 rounded px-1.5 py-0.5 outline-none text-center placeholder:text-muted-foreground/40" />
@@ -496,7 +801,6 @@ function QuickWeekForm() {
                 <input value={day.elevation || ''} onChange={e => updateDay(index, 'elevation', e.target.value)} placeholder="600m+"
                   className="w-14 text-[10px] bg-muted/20 rounded px-1.5 py-0.5 outline-none text-center placeholder:text-muted-foreground/40" />
               </div>
-
               <div className="flex items-center gap-3">
                 <button type="button" onClick={() => { updateDay(index, 'isKeySession', !day.isKeySession); if (!day.isKeySession) updateDay(index, 'isLongRun', false) }}
                   className={cn('text-[10px] font-semibold px-2 py-0.5 rounded-md transition-all',
@@ -511,8 +815,6 @@ function QuickWeekForm() {
                 <input value={day.coachTip || ''} onChange={e => updateDay(index, 'coachTip', e.target.value)} placeholder="💡 Tip del entrenador"
                   className="flex-1 text-[10px] bg-muted/20 rounded px-2 py-0.5 outline-none placeholder:text-muted-foreground/40" />
               </div>
-
-              {/* Extra detail fields for key/long sessions */}
               {(day.isKeySession || day.isLongRun) && (
                 <div className="space-y-1.5 pt-1 border-t border-border/30">
                   {day.isKeySession && (
@@ -581,17 +883,15 @@ function DuplicateWeekForm() {
       <button onClick={() => setCoachView('athlete-detail')} className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors">
         <ChevronLeft className="w-4 h-4" /> Atleta
       </button>
-
       <div className="flex items-center gap-2">
         <Copy className="w-5 h-5 text-cyan" />
         <h2 className="text-xl font-bold tracking-tight">Duplicar Semana</h2>
       </div>
       <p className="text-xs text-muted-foreground">Copiá una semana existente para el mismo atleta u otro.</p>
-
       <form onSubmit={handleSubmit} className="space-y-4">
         <div className="space-y-2">
           <Label className="text-xs font-semibold text-muted-foreground">Semana origen</Label>
-          <div className="space-y-1.5">
+          <div className="space-y-1.5 max-h-48 overflow-y-auto custom-scrollbar">
             {sourceAthlete?.weeks.map(week => (
               <button key={week.id} type="button" onClick={() => { setSourceWeekId(week.id); setNewWeekType(week.weekType) }}
                 className={cn('w-full text-left p-3 rounded-xl border-2 transition-all',
@@ -606,31 +906,30 @@ function DuplicateWeekForm() {
             ))}
           </div>
         </div>
-
         <div className="space-y-2">
           <Label className="text-xs font-semibold text-muted-foreground">Copiar a atleta</Label>
-          <div className="space-y-1.5">
-            {coachAthletes.map(athlete => (
-              <button key={athlete.id} type="button" onClick={() => setTargetAthleteId(athlete.id)}
+          <div className="space-y-1.5 max-h-48 overflow-y-auto custom-scrollbar">
+            {coachAthletes.map(a => (
+              <button key={a.id} type="button" onClick={() => setTargetAthleteId(a.id)}
                 className={cn('w-full text-left p-3 rounded-xl border-2 transition-all',
-                  targetAthleteId === athlete.id ? 'border-cyan bg-cyan/5' : 'border-border/40 bg-card hover:border-border')}>
+                  targetAthleteId === a.id ? 'border-cyan bg-cyan/5' : 'border-border/40 bg-card hover:border-border')}>
                 <div className="flex items-center gap-2">
-                  <div className="w-7 h-7 rounded-lg bg-cyan/10 text-cyan flex items-center justify-center text-xs font-bold">{athlete.name.charAt(0)}</div>
-                  <span className="text-sm font-semibold">{athlete.name}</span>
+                  <div className="w-7 h-7 rounded-lg bg-cyan/10 text-cyan flex items-center justify-center text-xs font-bold">{a.name.charAt(0)}</div>
+                  <span className="text-sm font-semibold">{a.name}</span>
+                  <Badge className={cn('text-[9px] font-semibold border ml-auto', getLevelColor(a.level))}>{getLevelLabel(a.level)}</Badge>
                 </div>
               </button>
             ))}
           </div>
         </div>
-
         <div className="grid grid-cols-2 gap-3">
           <div className="space-y-1">
-            <Label className="text-[10px] font-semibold text-muted-foreground">Nueva semana Nº (opcional)</Label>
+            <Label className="text-[10px] font-semibold text-muted-foreground">Nueva semana Nº</Label>
             <Input value={newWeekNumber} onChange={e => setNewWeekNumber(e.target.value)} placeholder={String(sourceWeek?.weekNumber || '')} type="number" min="1"
               className="h-10 bg-muted/30 border-0 focus-visible:ring-cyan/30 rounded-lg text-sm" />
           </div>
           <div className="space-y-1">
-            <Label className="text-[10px] font-semibold text-muted-foreground">Tipo (opcional)</Label>
+            <Label className="text-[10px] font-semibold text-muted-foreground">Tipo</Label>
             <div className="grid grid-cols-2 gap-1">
               {weekTypes.map(type => (
                 <button key={type} type="button" onClick={() => setNewWeekType(type)}
@@ -640,10 +939,8 @@ function DuplicateWeekForm() {
             </div>
           </div>
         </div>
-
         <Button type="submit" disabled={!sourceWeekId || !targetAthleteId || isCreating} className="w-full h-11 rounded-xl text-sm font-semibold bg-cyan hover:bg-cyan/90 text-white">
-          {isCreating ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Copy className="w-4 h-4 mr-1" />}
-          Duplicar Semana
+          {isCreating ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Copy className="w-4 h-4 mr-1" />} Duplicar Semana
         </Button>
       </form>
     </div>
@@ -833,7 +1130,9 @@ export function CoachPanel() {
       <main className="flex-1 overflow-y-auto custom-scrollbar pb-8">
         {coachView === 'athletes' && <AthletesList />}
         {coachView === 'create-athlete' && <CreateAthleteForm />}
+        {coachView === 'athlete-edit' && <EditAthleteForm />}
         {coachView === 'athlete-detail' && <AthleteDetail />}
+        {coachView === 'race-planner' && <RacePlanner />}
         {coachView === 'create-week' && <CreateWeekForm />}
         {coachView === 'quick-week' && <QuickWeekForm />}
         {coachView === 'duplicate-week' && <DuplicateWeekForm />}

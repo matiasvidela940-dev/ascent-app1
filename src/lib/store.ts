@@ -45,6 +45,9 @@ export interface AthleteData {
   id: string
   name: string
   email: string
+  level: string
+  targetRace: string | null
+  raceDate: string | null
 }
 
 export interface CoachAthleteData extends AthleteData {
@@ -52,7 +55,7 @@ export interface CoachAthleteData extends AthleteData {
 }
 
 type ViewType = 'home' | 'plan' | 'session' | 'longrun' | 'feedback'
-type CoachViewType = 'athletes' | 'athlete-detail' | 'week-detail' | 'create-athlete' | 'create-week' | 'create-day' | 'quick-week' | 'duplicate-week'
+type CoachViewType = 'athletes' | 'athlete-detail' | 'week-detail' | 'create-athlete' | 'create-week' | 'create-day' | 'quick-week' | 'duplicate-week' | 'race-planner' | 'athlete-edit'
 
 interface AppState {
   // Auth
@@ -86,7 +89,9 @@ interface AppState {
   setCoachView: (view: CoachViewType) => void
   selectAthlete: (id: string) => void
   selectWeek: (id: string) => void
-  createAthlete: (name: string, email: string, accessCode: string) => Promise<void>
+  createAthlete: (name: string, email: string, accessCode: string, level?: string) => Promise<void>
+  updateAthlete: (id: string, name: string, email: string, level: string, targetRace: string | null, raceDate: string | null) => Promise<void>
+  generateRacePlan: (athleteId: string, raceName: string, raceDate: string, totalWeeks: number, level: string) => Promise<void>
   createWeek: (athleteId: string, weekNumber: number, weekType: string, startDate: string) => Promise<void>
   createDay: (data: Record<string, unknown>) => Promise<void>
   createWeekWithDays: (athleteId: string, weekNumber: number, weekType: string, startDate: string, days: Record<string, unknown>[]) => Promise<void>
@@ -262,12 +267,12 @@ export const useAppStore = create<AppState>((set, get) => ({
   selectAthlete: (id: string) => set({ selectedAthleteId: id, coachView: 'athlete-detail' }),
   selectWeek: (id: string) => set({ selectedWeekId: id, coachView: 'week-detail' }),
 
-  createAthlete: async (name: string, email: string, accessCode: string) => {
+  createAthlete: async (name: string, email: string, accessCode: string, level?: string) => {
     try {
       const res = await fetch('/api/coach', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'createAthlete', name, email, accessCode }),
+        body: JSON.stringify({ action: 'createAthlete', name, email, accessCode, level }),
       })
       if (!res.ok) {
         const data = await res.json()
@@ -275,6 +280,41 @@ export const useAppStore = create<AppState>((set, get) => ({
       }
       await get().loadCoachData()
       set({ coachView: 'athletes' })
+    } catch (error) {
+      throw error
+    }
+  },
+
+  updateAthlete: async (id: string, name: string, email: string, level: string, targetRace: string | null, raceDate: string | null) => {
+    try {
+      const res = await fetch('/api/coach', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'updateAthlete', id, name, email, level, targetRace, raceDate }),
+      })
+      if (!res.ok) {
+        const data = await res.json()
+        throw new Error(data.error)
+      }
+      await get().loadCoachData()
+    } catch (error) {
+      throw error
+    }
+  },
+
+  generateRacePlan: async (athleteId: string, raceName: string, raceDate: string, totalWeeks: number, level: string) => {
+    try {
+      const res = await fetch('/api/coach', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'generateRacePlan', athleteId, raceName, raceDate, totalWeeks, level }),
+      })
+      if (!res.ok) {
+        const data = await res.json()
+        throw new Error(data.error)
+      }
+      await get().loadCoachData()
+      set({ coachView: 'athlete-detail' })
     } catch (error) {
       throw error
     }

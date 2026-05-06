@@ -3,18 +3,10 @@ generator client {
 }
 
 datasource db {
-  provider = "sqlite"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
 }
-
-// ==============================================
-// IMPORTANTE: Para deploy en Vercel con Supabase:
-// 1. Cambiar provider a "postgresql"
-// 2. Agregar directUrl = env("DIRECT_URL")
-// 3. Agregar @@map("table_name") a cada modelo
-// 4. Ejecutar: npx prisma migrate dev --name init
-// Ver schema.postgresql.prisma para referencia
-// ==============================================
 
 model Athlete {
   id         String         @id @default(cuid())
@@ -27,6 +19,8 @@ model Athlete {
   createdAt  DateTime       @default(now())
   updatedAt  DateTime       @updatedAt
   weeks      TrainingWeek[]
+
+  @@map("athletes")
 }
 
 model TrainingWeek {
@@ -40,39 +34,41 @@ model TrainingWeek {
   athlete Athlete @relation(fields: [athleteId], references: [id], onDelete: Cascade)
 
   @@index([athleteId])
+  @@map("training_weeks")
 }
 
 model TrainingDay {
-  id             String   @id @default(cuid())
-  weekId         String
-  dayNumber      Int
-  dayLabel       String
-  type           String
-  title          String
-  description    String
-  distance       String?
-  terrain        String?
-  pace           String?
-  heartRateMin   Int?
-  heartRateMax   Int?
-  isKeySession   Boolean  @default(false)
-  isLongRun      Boolean  @default(false)
-  warmup         String?
-  mainBlock      String?
-  cooldown       String?
-  coachTip       String?
-  elevation      String?
-  intensity      String?
-  hydration      String?
+  id              String   @id @default(cuid())
+  weekId          String
+  dayNumber       Int
+  dayLabel        String
+  type            String
+  title           String
+  description     String
+  distance        String?
+  terrain         String?
+  pace            String?
+  heartRateMin    Int?
+  heartRateMax    Int?
+  isKeySession    Boolean  @default(false)
+  isLongRun       Boolean  @default(false)
+  warmup          String?
+  mainBlock       String?
+  cooldown        String?
+  coachTip        String?
+  elevation       String?
+  intensity       String?
+  hydration       String?
   recommendations String?
-  completed      Boolean  @default(false)
-  completedAt    DateTime?
-  order          Int      @default(0)
-  feedback       Feedback?
+  completed       Boolean  @default(false)
+  completedAt     DateTime?
+  order           Int      @default(0)
+  feedback        Feedback?
 
   week TrainingWeek @relation(fields: [weekId], references: [id], onDelete: Cascade)
 
   @@index([weekId])
+  @@map("training_days")
 }
 
 model Feedback {
@@ -83,51 +79,6 @@ model Feedback {
   createdAt     DateTime @default(now())
 
   trainingDay TrainingDay @relation(fields: [trainingDayId], references: [id], onDelete: Cascade)
-}
 
-model Account {
-  id                String  @id @default(cuid())
-  userId            String
-  type              String
-  provider          String
-  providerAccountId String
-  refresh_token     String?
-  access_token      String?
-  expires_at        Int?
-  token_type        String?
-  scope             String?
-  id_token          String?
-  session_state     String?
-
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@unique([provider, providerAccountId])
-}
-
-model Session {
-  id           String   @id @default(cuid())
-  sessionToken String   @unique
-  userId       String
-  expires      DateTime
-
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
-}
-
-model User {
-  id            String    @id @default(cuid())
-  name         String?
-  email        String?    @unique
-  emailVerified DateTime?
-  image        String?
-  accounts     Account[]
-  sessions     Session[]
-  athleteId    String?
-}
-
-model VerificationToken {
-  identifier String
-  token      String   @unique
-  expires    DateTime
-
-  @@unique([identifier, token])
+  @@map("feedbacks")
 }

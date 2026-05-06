@@ -1,6 +1,6 @@
 import { SignJWT, jwtVerify } from 'jose'
 import { cookies } from 'next/headers'
-import { db } from '@/lib/db'
+import { supabase } from '@/lib/supabase'
 
 const SECRET = new TextEncoder().encode(
   process.env.NEXTAUTH_SECRET || 'ascent-runclub-secret-change-in-production'
@@ -82,15 +82,22 @@ export async function authenticateAthlete(identifier: string): Promise<SessionPa
   // Athlete login by email or access code
   const trimmed = identifier.trim()
   const lower = trimmed.toLowerCase()
+  const upper = trimmed.toUpperCase()
 
-  const athlete = await db.athlete.findFirst({
-    where: {
-      OR: [
-        { email: lower },
-        { accessCode: trimmed.toUpperCase() },
-      ],
-    },
-  })
+  // Try email first
+  const { data: byEmail } = await supabase
+    .from('athletes')
+    .select('*')
+    .eq('email', lower)
+    .single()
+
+  // If not found by email, try by access code
+  const athlete = byEmail || (await supabase
+    .from('athletes')
+    .select('*')
+    .eq('accessCode', upper)
+    .single()
+  ).data
 
   if (!athlete) return null
 

@@ -1,26 +1,27 @@
 ---
 Task ID: 1
 Agent: Main
-Task: Migrate from SQLite/localStorage to Supabase PostgreSQL + secure JWT auth
+Task: Migrate ASCENT RUN CLUB from Prisma/SQLite to Supabase PostgreSQL
 
 Work Log:
-- Analyzed current architecture: SQLite via Prisma, Zustand in-memory auth
-- Created prisma/schema.postgresql.prisma for Supabase deployment (with @@map table names, directUrl)
-- Attempted NextAuth.js v4 integration — caused Turbopack OOM crashes
-- Replaced NextAuth with custom JWT auth using `jose` library + httpOnly cookies
-- Created /src/lib/auth.ts with: encrypt/decrypt JWT, createSession, getSession, destroySession, authenticateAthlete
-- Cookie: `ascent-session` — httpOnly, sameSite=lax, maxAge=30 days, secure in production
-- Updated /src/lib/store.ts: added checkSession() for auto-login on page load, isSessionChecked to prevent login flash
-- Updated /src/app/page.tsx: checks session on mount, shows loading spinner while checking
-- Updated /src/app/api/auth/route.ts: POST (login), GET (session check), DELETE (logout)
-- Updated /src/app/api/training/route.ts: added getSession() auth check
-- Updated /src/app/api/feedback/route.ts: added getSession() auth check
-- Updated /src/app/api/coach/route.ts: added getSession() auth check, removed readFileSync
-- Created .env.example with Supabase instructions
-- All tests pass: login, session persistence, coach login, logout
+- Examined existing project state: Prisma with SQLite, custom JWT auth, Zustand store
+- Installed @supabase/supabase-js package
+- Created /src/lib/supabase.ts - Supabase client with service_role key support (falls back to anon key)
+- Updated /src/lib/auth.ts - authenticateAthlete() now uses Supabase queries instead of Prisma
+- Rewrote /src/app/api/auth/route.ts - Uses Supabase nested selects instead of Prisma
+- Rewrote /src/app/api/coach/route.ts - All CRUD operations via Supabase client (7 actions)
+- Rewrote /src/app/api/training/route.ts - GET/PATCH using Supabase client
+- Rewrote /src/app/api/feedback/route.ts - POST upsert + GET via Supabase
+- Created /src/app/api/setup/route.ts - GET (check DB connection) + POST (seed demo data)
+- Updated .env.local - Added SUPABASE_SERVICE_ROLE_KEY placeholder
+- Updated coach-panel.tsx - Added DbSetupBanner component + "Crear atleta de prueba" button
+- Tested Supabase REST API: SELECT works, INSERT blocked by RLS (needs service_role key or RLS policies)
+- Lint passes cleanly
 
 Stage Summary:
-- Database is REAL (SQLite via Prisma for dev, PostgreSQL/Supabase ready for prod)
-- Auth is SECURE: JWT in httpOnly cookies (no localStorage!)
-- Session persists across page reloads (cookie-based)
-- For Vercel deploy: replace prisma/schema.prisma with schema.postgresql.prisma content, set DATABASE_URL + DIRECT_URL env vars
+- All API routes now use Supabase client instead of Prisma
+- App will work with Supabase once RLS policies are configured (or service_role key is provided)
+- The "Crear atleta de prueba" button in coach panel seeds demo data
+- DbSetupBanner shows setup instructions when DB can't be written to
+- Key blocker: RLS policies on Supabase tables need to be configured for the anon key to work
+- Solution: User needs to either (a) add SUPABASE_SERVICE_ROLE_KEY in .env.local, or (b) run RLS policy SQL in Supabase SQL Editor

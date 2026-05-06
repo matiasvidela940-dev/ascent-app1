@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { authenticateAthlete, createSession, getSession, destroySession } from '@/lib/auth'
-import { db } from '@/lib/db'
+import { supabase } from '@/lib/supabase'
 
 // POST /api/auth — Login
 export async function POST(request: NextRequest) {
@@ -34,26 +34,31 @@ export async function POST(request: NextRequest) {
       })
     }
 
-    // Fetch athlete data
-    const athlete = await db.athlete.findUnique({
-      where: { id: session.athleteId! },
-      include: {
-        weeks: {
-          include: {
-            days: {
-              orderBy: { order: 'asc' },
-            },
-          },
-          orderBy: { weekNumber: 'desc' },
-        },
-      },
-    })
+    // Fetch athlete data with weeks and days
+    const { data: athlete, error } = await supabase
+      .from('athletes')
+      .select('*, weeks:training_weeks(*, days:training_days(*))')
+      .eq('id', session.athleteId!)
+      .single()
 
-    if (!athlete) {
+    if (error || !athlete) {
       return NextResponse.json({ error: 'Atleta no encontrado' }, { status: 404 })
     }
 
-    const currentWeek = athlete.weeks[0]
+    // Sort weeks by weekNumber desc, days by order asc
+    const weeks = (athlete.weeks || []).sort(
+      (a: Record<string, unknown>, b: Record<string, unknown>) =>
+        (b.weekNumber as number) - (a.weekNumber as number)
+    )
+    weeks.forEach((w: Record<string, unknown>) => {
+      if (Array.isArray(w.days)) {
+        w.days.sort((a: Record<string, unknown>, b: Record<string, unknown>) =>
+          (a.order as number) - (b.order as number)
+        )
+      }
+    })
+
+    const currentWeek = weeks[0]
 
     return NextResponse.json({
       role: 'athlete',
@@ -63,7 +68,7 @@ export async function POST(request: NextRequest) {
         email: athlete.email,
         level: athlete.level,
         targetRace: athlete.targetRace,
-        raceDate: athlete.raceDate?.toISOString() || null,
+        raceDate: athlete.raceDate || null,
       },
       currentWeek: currentWeek
         ? {
@@ -102,25 +107,30 @@ export async function GET() {
     }
 
     // Fetch fresh athlete data
-    const athlete = await db.athlete.findUnique({
-      where: { id: session.athleteId! },
-      include: {
-        weeks: {
-          include: {
-            days: {
-              orderBy: { order: 'asc' },
-            },
-          },
-          orderBy: { weekNumber: 'desc' },
-        },
-      },
-    })
+    const { data: athlete, error } = await supabase
+      .from('athletes')
+      .select('*, weeks:training_weeks(*, days:training_days(*))')
+      .eq('id', session.athleteId!)
+      .single()
 
-    if (!athlete) {
+    if (error || !athlete) {
       return NextResponse.json({ authenticated: false })
     }
 
-    const currentWeek = athlete.weeks[0]
+    // Sort weeks by weekNumber desc, days by order asc
+    const weeks = (athlete.weeks || []).sort(
+      (a: Record<string, unknown>, b: Record<string, unknown>) =>
+        (b.weekNumber as number) - (a.weekNumber as number)
+    )
+    weeks.forEach((w: Record<string, unknown>) => {
+      if (Array.isArray(w.days)) {
+        w.days.sort((a: Record<string, unknown>, b: Record<string, unknown>) =>
+          (a.order as number) - (b.order as number)
+        )
+      }
+    })
+
+    const currentWeek = weeks[0]
 
     return NextResponse.json({
       authenticated: true,
@@ -131,7 +141,7 @@ export async function GET() {
         email: athlete.email,
         level: athlete.level,
         targetRace: athlete.targetRace,
-        raceDate: athlete.raceDate?.toISOString() || null,
+        raceDate: athlete.raceDate || null,
       },
       currentWeek: currentWeek
         ? {

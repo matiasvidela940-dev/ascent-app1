@@ -1,4 +1,4 @@
-import { db } from '@/lib/db'
+import { supabase } from '@/lib/supabase'
 import { NextRequest, NextResponse } from 'next/server'
 import { getSession } from '@/lib/auth'
 
@@ -25,19 +25,28 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Upsert feedback
-    const feedback = await db.feedback.upsert({
-      where: { trainingDayId },
-      update: {
-        feeling,
-        comment: comment || null,
-      },
-      create: {
-        trainingDayId,
-        feeling,
-        comment: comment || null,
-      },
-    })
+    // Upsert feedback using Supabase upsert
+    const { data: feedback, error } = await supabase
+      .from('feedbacks')
+      .upsert(
+        {
+          id: crypto.randomUUID(),
+          trainingDayId,
+          feeling,
+          comment: comment || null,
+        },
+        { onConflict: 'trainingDayId' }
+      )
+      .select()
+      .single()
+
+    if (error) {
+      console.error('Supabase error:', error)
+      return NextResponse.json(
+        { error: 'Error al guardar el feedback' },
+        { status: 500 }
+      )
+    }
 
     return NextResponse.json({ feedback })
   } catch (error) {
@@ -66,11 +75,22 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    const feedback = await db.feedback.findUnique({
-      where: { trainingDayId },
-    })
+    const { data: feedback, error } = await supabase
+      .from('feedbacks')
+      .select('*')
+      .eq('trainingDayId', trainingDayId)
+      .single()
 
-    return NextResponse.json({ feedback })
+    if (error && error.code !== 'PGRST116') {
+      // PGRST116 = no rows returned, which is fine (feedback is null)
+      console.error('Supabase error:', error)
+      return NextResponse.json(
+        { error: 'Error al cargar el feedback' },
+        { status: 500 }
+      )
+    }
+
+    return NextResponse.json({ feedback: feedback || null })
   } catch (error) {
     console.error('Feedback fetch error:', error)
     return NextResponse.json(

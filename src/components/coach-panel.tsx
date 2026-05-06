@@ -31,7 +31,7 @@ import {
   Sparkles,
 } from '@/lib/icons'
 import { cn } from '@/lib/utils'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { toast } from 'sonner'
 
 const weekTypes = ['BASE', 'CARGA', 'PICO', 'DESCARGA']
@@ -1109,9 +1109,91 @@ function CreateDayForm() {
   )
 }
 
+// ── Database Setup Banner ──────────────────────
+function DbSetupBanner() {
+  const { loadCoachData, coachAthletes } = useAppStore()
+  const [dbStatus, setDbStatus] = useState<'checking' | 'ready' | 'needs-setup' | 'error'>('checking')
+  const [dbMessage, setDbMessage] = useState('')
+  const [isSeeding, setIsSeeding] = useState(false)
+
+  useEffect(() => {
+    fetch('/api/setup')
+      .then(r => r.json())
+      .then(data => {
+        if (data.needsSetup) {
+          setDbStatus('needs-setup')
+          setDbMessage(data.error || 'Configurá la base de datos')
+        } else {
+          setDbStatus('ready')
+        }
+      })
+      .catch(() => {
+        setDbStatus('error')
+        setDbMessage('Error al conectar con Supabase')
+      })
+  }, [])
+
+  const handleSeed = async () => {
+    setIsSeeding(true)
+    try {
+      const res = await fetch('/api/setup', { method: 'POST' })
+      const data = await res.json()
+      if (data.success) {
+        toast.success(data.message)
+        setDbStatus('ready')
+        await loadCoachData()
+      } else {
+        toast.error(data.error || 'Error al crear datos de prueba')
+        setDbMessage(data.hint || data.error)
+      }
+    } catch {
+      toast.error('Error de conexión')
+    } finally {
+      setIsSeeding(false)
+    }
+  }
+
+  if (dbStatus === 'checking' || dbStatus === 'ready') return null
+
+  return (
+    <div className="mx-5 mt-4 rounded-2xl bg-amber-50 border border-amber-200 p-4 space-y-3 fade-in">
+      <div className="flex items-center gap-2">
+        <Flame className="w-4 h-4 text-amber-500" />
+        <h4 className="text-xs font-bold text-amber-700 uppercase tracking-wider">Base de datos</h4>
+      </div>
+      <p className="text-xs text-amber-600">{dbMessage || 'Supabase necesita configuración para escribir datos.'}</p>
+      <div className="flex gap-2">
+        <Button onClick={handleSeed} disabled={isSeeding} size="sm" className="h-8 rounded-lg text-xs font-semibold bg-amber-500 hover:bg-amber-600 text-white">
+          {isSeeding ? <Loader2 className="w-3 h-3 mr-1 animate-spin" /> : <Sparkles className="w-3 h-3 mr-1" />}
+          Crear atleta de prueba
+        </Button>
+      </div>
+      <p className="text-[10px] text-amber-500/80">
+        Si falla, agregá la <code className="bg-amber-100 px-1 rounded">SUPABASE_SERVICE_ROLE_KEY</code> en <code className="bg-amber-100 px-1 rounded">.env.local</code>
+      </p>
+    </div>
+  )
+}
+
 // ── Main Coach Panel ──────────────────────
 export function CoachPanel() {
-  const { coachView, logout } = useAppStore()
+  const { coachView, logout, coachAthletes, loadCoachData } = useAppStore()
+  const [showSetup, setShowSetup] = useState(false)
+
+  const handleAddTestAthlete = async () => {
+    try {
+      const res = await fetch('/api/setup', { method: 'POST' })
+      const data = await res.json()
+      if (data.success) {
+        toast.success(data.message)
+        await loadCoachData()
+      } else {
+        toast.error(data.error || 'Error al crear atleta de prueba')
+      }
+    } catch {
+      toast.error('Error de conexión')
+    }
+  }
 
   return (
     <div className="min-h-screen flex flex-col bg-background max-w-lg mx-auto relative">
@@ -1124,9 +1206,33 @@ export function CoachPanel() {
               <span className="text-[10px] tracking-[0.2em] text-cyan ml-1.5 font-semibold">ENTRENADOR</span>
             </div>
           </div>
-          <Button variant="ghost" size="icon" onClick={logout} className="w-8 h-8 text-muted-foreground hover:text-foreground"><LogOut className="w-4 h-4" /></Button>
+          <div className="flex items-center gap-1">
+            <Button variant="ghost" size="icon" onClick={() => setShowSetup(!showSetup)} className="w-8 h-8 text-muted-foreground hover:text-cyan" title="Configuración DB">
+              <Sparkles className="w-4 h-4" />
+            </Button>
+            <Button variant="ghost" size="icon" onClick={logout} className="w-8 h-8 text-muted-foreground hover:text-foreground"><LogOut className="w-4 h-4" /></Button>
+          </div>
         </div>
       </header>
+
+      {/* Database setup banner - shows when DB needs configuration */}
+      <DbSetupBanner />
+
+      {/* Quick add test athlete button - visible in athletes view */}
+      {coachView === 'athletes' && coachAthletes.length === 0 && (
+        <div className="mx-5 mt-4 rounded-2xl bg-cyan/5 border border-cyan/20 p-4 space-y-3 fade-in">
+          <div className="flex items-center gap-2">
+            <Sparkles className="w-4 h-4 text-cyan" />
+            <h4 className="text-xs font-bold text-cyan uppercase tracking-wider">Comenzá rápido</h4>
+          </div>
+          <p className="text-xs text-muted-foreground">Creá un atleta de prueba con una semana de entrenamiento lista para usar.</p>
+          <Button onClick={handleAddTestAthlete} className="h-9 rounded-xl text-xs font-semibold bg-cyan hover:bg-cyan/90 text-white">
+            <Sparkles className="w-3.5 h-3.5 mr-1" />
+            Crear atleta de prueba
+          </Button>
+        </div>
+      )}
+
       <main className="flex-1 overflow-y-auto custom-scrollbar pb-8">
         {coachView === 'athletes' && <AthletesList />}
         {coachView === 'create-athlete' && <CreateAthleteForm />}

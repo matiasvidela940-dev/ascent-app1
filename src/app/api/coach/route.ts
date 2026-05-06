@@ -1,7 +1,27 @@
-import { db } from '@/lib/db'
+import { supabase } from '@/lib/supabase'
 import { NextRequest, NextResponse } from 'next/server'
 import { getSession } from '@/lib/auth'
 import { getTemplatesForLevel } from '@/lib/training-templates'
+
+// Helper to normalize feedback (Supabase may return array for one-to-many FK)
+function normalizeFeedback(day: Record<string, unknown>) {
+  if (day.feedback && Array.isArray(day.feedback)) {
+    day.feedback = (day.feedback as Record<string, unknown>[])[0] || null
+  }
+}
+
+// Helper to sort nested data for athletes
+function sortAthleteData(athletes: Record<string, unknown>[]) {
+  athletes.forEach((athlete) => {
+    const weeks = (athlete.weeks || []) as Record<string, unknown>[]
+    weeks.sort((a, b) => (b.weekNumber as number) - (a.weekNumber as number))
+    weeks.forEach((w) => {
+      const days = (w.days || []) as Record<string, unknown>[]
+      days.sort((a, b) => (a.order as number) - (b.order as number))
+      days.forEach(normalizeFeedback)
+    })
+  })
+}
 
 // GET - List all athletes with their weeks
 export async function GET(request: NextRequest) {
@@ -18,20 +38,17 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Código de entrenador inválido' }, { status: 403 })
     }
 
-    const athletes = await db.athlete.findMany({
-      include: {
-        weeks: {
-          include: {
-            days: {
-              include: { feedback: true },
-              orderBy: { order: 'asc' },
-            },
-          },
-          orderBy: { weekNumber: 'desc' },
-        },
-      },
-      orderBy: { name: 'asc' },
-    })
+    const { data: athletes, error } = await supabase
+      .from('athletes')
+      .select('*, weeks:training_weeks(*, days:training_days(*, feedback:feedbacks(*)))')
+      .order('name', { ascending: true })
+
+    if (error) {
+      console.error('Supabase error:', error)
+      return NextResponse.json({ error: 'Error al cargar datos' }, { status: 500 })
+    }
+
+    sortAthleteData(athletes as Record<string, unknown>[])
 
     return NextResponse.json({ athletes })
   } catch (error) {
@@ -58,25 +75,48 @@ export async function POST(request: NextRequest) {
         if (!name || !email || !accessCode) {
           return NextResponse.json({ error: 'Faltan campos obligatorios' }, { status: 400 })
         }
-        const athlete = await db.athlete.create({
-          data: { name, email: email.toLowerCase(), accessCode: accessCode.toUpperCase(), level: level || 'INTERMEDIO' },
-        })
+        const { data: athlete, error } = await supabase
+          .from('athletes')
+          .insert({
+            id: crypto.randomUUID(),
+            name,
+            email: email.toLowerCase(),
+            accessCode: accessCode.toUpperCase(),
+            level: level || 'INTERMEDIO',
+          })
+          .select()
+          .single()
+
+        if (error) {
+          console.error('Supabase error:', error)
+          return NextResponse.json({ error: 'Error al crear atleta' }, { status: 500 })
+        }
         return NextResponse.json({ athlete })
       }
 
       case 'updateAthlete': {
         const { id, name, email, level, targetRace, raceDate } = body
         if (!id) return NextResponse.json({ error: 'Se requiere id' }, { status: 400 })
-        const athlete = await db.athlete.update({
-          where: { id },
-          data: {
-            ...(name && { name }),
-            ...(email && { email: email.toLowerCase() }),
-            ...(level && { level }),
-            targetRace: targetRace || null,
-            raceDate: raceDate ? new Date(raceDate) : null,
-          },
-        })
+
+        const updateData: Record<string, unknown> = {}
+        if (name) updateData.name = name
+        if (email) updateData.email = email.toLowerCase()
+        if (level) updateData.level = level
+        updateData.targetRace = targetRace || null
+        updateData.raceDate = raceDate || null
+        updateData.updatedAt = new Date().toISOString()
+
+        const { data: athlete, error } = await supabase
+          .from('athletes')
+          .update(updateData)
+          .eq('id', id)
+          .select()
+          .single()
+
+        if (error) {
+          console.error('Supabase error:', error)
+          return NextResponse.json({ error: 'Error al actualizar atleta' }, { status: 500 })
+        }
         return NextResponse.json({ athlete })
       }
 
@@ -86,10 +126,19 @@ export async function POST(request: NextRequest) {
           return NextResponse.json({ error: 'Faltan campos obligatorios' }, { status: 400 })
         }
 
-        await db.athlete.update({
-          where: { id: athleteId },
-          data: { targetRace: raceName || null, raceDate: new Date(raceDate) },
-        })
+        // Update athlete with race info
+        const { error: updateError } = await supabase
+          .from('athletes')
+          .update({
+            targetRace: raceName || null,
+            raceDate: raceDate,
+            updatedAt: new Date().toISOString(),
+          })
+          .eq('id', athleteId)
+
+        if (updateError) {
+          console.error('Supabase error:', updateError)
+        }
 
         const raceDay = new Date(raceDate)
         const numWeeks = parseInt(totalWeeks)
@@ -113,20 +162,30 @@ export async function POST(request: NextRequest) {
           const weekStart = new Date(mondayOfRaceWeek)
           weekStart.setDate(weekStart.getDate() - (numWeeks - 1 - i) * 7)
 
-          const week = await db.trainingWeek.create({
-            data: {
+          const { data: week, error: weekError } = await supabase
+            .from('training_weeks')
+            .insert({
+              id: crypto.randomUUID(),
               athleteId,
               weekNumber: i + 1,
               weekType,
-              startDate: weekStart,
-            },
-          })
+              startDate: weekStart.toISOString(),
+            })
+            .select()
+            .single()
+
+          if (weekError || !week) {
+            console.error('Supabase error creating week:', weekError)
+            continue
+          }
 
           const dayTemplate = templates[weekType] || templates['BASE']
           for (const [dayIdx, dt] of dayTemplate.entries()) {
             if (!dt.title) continue
-            await db.trainingDay.create({
-              data: {
+            const { error: dayError } = await supabase
+              .from('training_days')
+              .insert({
+                id: crypto.randomUUID(),
                 weekId: week.id,
                 dayNumber: dayIdx + 1,
                 dayLabel: `Día ${dayIdx + 1}`,
@@ -149,8 +208,10 @@ export async function POST(request: NextRequest) {
                 hydration: dt.hydration || null,
                 recommendations: dt.recommendations || null,
                 order: dayIdx + 1,
-              },
-            })
+              })
+            if (dayError) {
+              console.error('Supabase error creating day:', dayError)
+            }
           }
 
           createdWeeks.push(week)
@@ -164,14 +225,22 @@ export async function POST(request: NextRequest) {
         if (!athleteId || !weekNumber || !weekType) {
           return NextResponse.json({ error: 'Faltan campos obligatorios' }, { status: 400 })
         }
-        const week = await db.trainingWeek.create({
-          data: {
+        const { data: week, error } = await supabase
+          .from('training_weeks')
+          .insert({
+            id: crypto.randomUUID(),
             athleteId,
             weekNumber: parseInt(weekNumber),
             weekType,
-            startDate: startDate ? new Date(startDate) : new Date(),
-          },
-        })
+            startDate: startDate ? new Date(startDate).toISOString() : new Date().toISOString(),
+          })
+          .select()
+          .single()
+
+        if (error) {
+          console.error('Supabase error:', error)
+          return NextResponse.json({ error: 'Error al crear semana' }, { status: 500 })
+        }
         return NextResponse.json({ week })
       }
 
@@ -184,8 +253,10 @@ export async function POST(request: NextRequest) {
           return NextResponse.json({ error: 'Faltan campos obligatorios' }, { status: 400 })
         }
 
-        const day = await db.trainingDay.create({
-          data: {
+        const { data: day, error } = await supabase
+          .from('training_days')
+          .insert({
+            id: crypto.randomUUID(),
             weekId,
             dayNumber: parseInt(dayNumber),
             dayLabel,
@@ -208,8 +279,14 @@ export async function POST(request: NextRequest) {
             hydration: hydration || null,
             recommendations: recommendations || null,
             order: order ? parseInt(order) : parseInt(dayNumber),
-          },
-        })
+          })
+          .select()
+          .single()
+
+        if (error) {
+          console.error('Supabase error:', error)
+          return NextResponse.json({ error: 'Error al crear día' }, { status: 500 })
+        }
         return NextResponse.json({ day })
       }
 
@@ -219,20 +296,30 @@ export async function POST(request: NextRequest) {
           return NextResponse.json({ error: 'Faltan campos obligatorios' }, { status: 400 })
         }
 
-        const week = await db.trainingWeek.create({
-          data: {
+        const { data: week, error: weekError } = await supabase
+          .from('training_weeks')
+          .insert({
+            id: crypto.randomUUID(),
             athleteId,
             weekNumber: parseInt(weekNumber),
             weekType,
-            startDate: startDate ? new Date(startDate) : new Date(),
-          },
-        })
+            startDate: startDate ? new Date(startDate).toISOString() : new Date().toISOString(),
+          })
+          .select()
+          .single()
+
+        if (weekError || !week) {
+          console.error('Supabase error:', weekError)
+          return NextResponse.json({ error: 'Error al crear semana' }, { status: 500 })
+        }
 
         const createdDays = []
         for (const d of days) {
           if (!d.title || !d.type) continue
-          const day = await db.trainingDay.create({
-            data: {
+          const { data: day, error: dayError } = await supabase
+            .from('training_days')
+            .insert({
+              id: crypto.randomUUID(),
               weekId: week.id,
               dayNumber: parseInt(d.dayNumber) || 1,
               dayLabel: d.dayLabel || `Día ${d.dayNumber}`,
@@ -255,9 +342,15 @@ export async function POST(request: NextRequest) {
               hydration: d.hydration || null,
               recommendations: d.recommendations || null,
               order: d.order ? parseInt(d.order) : parseInt(d.dayNumber) || 1,
-            },
-          })
-          createdDays.push(day)
+            })
+            .select()
+            .single()
+
+          if (dayError) {
+            console.error('Supabase error creating day:', dayError)
+          } else if (day) {
+            createdDays.push(day)
+          }
         }
 
         return NextResponse.json({ week, days: createdDays })
@@ -269,28 +362,48 @@ export async function POST(request: NextRequest) {
           return NextResponse.json({ error: 'Faltan campos obligatorios' }, { status: 400 })
         }
 
-        const sourceWeek = await db.trainingWeek.findUnique({
-          where: { id: sourceWeekId },
-          include: { days: { orderBy: { order: 'asc' } } },
-        })
+        // Fetch source week with its days
+        const { data: sourceWeek, error: sourceError } = await supabase
+          .from('training_weeks')
+          .select('*, days:training_days(*)')
+          .eq('id', sourceWeekId)
+          .single()
 
-        if (!sourceWeek) {
+        if (sourceError || !sourceWeek) {
           return NextResponse.json({ error: 'Semana origen no encontrada' }, { status: 404 })
         }
 
-        const newWeek = await db.trainingWeek.create({
-          data: {
+        // Sort source days by order
+        const sourceDays = (sourceWeek.days || []).sort(
+          (a: Record<string, unknown>, b: Record<string, unknown>) =>
+            (a.order as number) - (b.order as number)
+        )
+
+        // Create new week
+        const { data: newWeek, error: newWeekError } = await supabase
+          .from('training_weeks')
+          .insert({
+            id: crypto.randomUUID(),
             athleteId: targetAthleteId,
             weekNumber: parseInt(newWeekNumber) || sourceWeek.weekNumber,
             weekType: newWeekType || sourceWeek.weekType,
-            startDate: new Date(),
-          },
-        })
+            startDate: new Date().toISOString(),
+          })
+          .select()
+          .single()
 
+        if (newWeekError || !newWeek) {
+          console.error('Supabase error:', newWeekError)
+          return NextResponse.json({ error: 'Error al crear semana' }, { status: 500 })
+        }
+
+        // Duplicate days
         const createdDays = []
-        for (const d of sourceWeek.days) {
-          const day = await db.trainingDay.create({
-            data: {
+        for (const d of sourceDays) {
+          const { data: day, error: dayError } = await supabase
+            .from('training_days')
+            .insert({
+              id: crypto.randomUUID(),
               weekId: newWeek.id,
               dayNumber: d.dayNumber,
               dayLabel: d.dayLabel,
@@ -313,9 +426,15 @@ export async function POST(request: NextRequest) {
               hydration: d.hydration,
               recommendations: d.recommendations,
               order: d.order,
-            },
-          })
-          createdDays.push(day)
+            })
+            .select()
+            .single()
+
+          if (dayError) {
+            console.error('Supabase error duplicating day:', dayError)
+          } else if (day) {
+            createdDays.push(day)
+          }
         }
 
         return NextResponse.json({ week: newWeek, days: createdDays })
@@ -351,15 +470,39 @@ export async function DELETE(request: NextRequest) {
 
     switch (action) {
       case 'deleteAthlete': {
-        await db.athlete.delete({ where: { id } })
+        const { error } = await supabase
+          .from('athletes')
+          .delete()
+          .eq('id', id)
+
+        if (error) {
+          console.error('Supabase error:', error)
+          return NextResponse.json({ error: 'Error al eliminar atleta' }, { status: 500 })
+        }
         return NextResponse.json({ success: true })
       }
       case 'deleteWeek': {
-        await db.trainingWeek.delete({ where: { id } })
+        const { error } = await supabase
+          .from('training_weeks')
+          .delete()
+          .eq('id', id)
+
+        if (error) {
+          console.error('Supabase error:', error)
+          return NextResponse.json({ error: 'Error al eliminar semana' }, { status: 500 })
+        }
         return NextResponse.json({ success: true })
       }
       case 'deleteDay': {
-        await db.trainingDay.delete({ where: { id } })
+        const { error } = await supabase
+          .from('training_days')
+          .delete()
+          .eq('id', id)
+
+        if (error) {
+          console.error('Supabase error:', error)
+          return NextResponse.json({ error: 'Error al eliminar día' }, { status: 500 })
+        }
         return NextResponse.json({ success: true })
       }
       default:

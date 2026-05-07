@@ -83,6 +83,8 @@ export async function POST(request: NextRequest) {
             email: email.toLowerCase(),
             accessCode: accessCode.toUpperCase(),
             level: level || 'INTERMEDIO',
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
           })
           .select()
           .single()

@@ -45,6 +45,7 @@ export interface AthleteData {
   id: string
   name: string
   email: string
+  accessCode: string
   level: string
   targetRace: string | null
   raceDate: string | null

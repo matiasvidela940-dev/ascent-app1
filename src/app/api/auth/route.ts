@@ -66,6 +66,7 @@ export async function POST(request: NextRequest) {
         id: athlete.id,
         name: athlete.name,
         email: athlete.email,
+        accessCode: athlete.accessCode,
         level: athlete.level,
         targetRace: athlete.targetRace,
         raceDate: athlete.raceDate || null,

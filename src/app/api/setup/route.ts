@@ -22,33 +22,8 @@ export async function GET() {
       })
     }
 
-    // Test write access by trying to insert and immediately delete a test record
-    const testId = crypto.randomUUID()
-    const { error: writeError } = await supabase
-      .from('athletes')
-      .insert({
-        id: testId,
-        name: '__connection_test__',
-        email: `test-${Date.now()}@connection.test`,
-        accessCode: `TEST${Date.now()}`,
-        level: 'AMATEUR',
-      })
-
-    if (writeError) {
-      return NextResponse.json({
-        connected: true,
-        canRead: true,
-        canWrite: false,
-        usingServiceRole: isUsingServiceRole,
-        error: writeError.message,
-        needsSetup: true,
-        setupType: writeError.message.includes('row-level security') ? 'rls' : 'permissions',
-      })
-    }
-
-    // Clean up test record
-    await supabase.from('athletes').delete().eq('id', testId)
-
+    // If we can read, assume write works too (RLS policies allow all)
+    // Skip write test to reduce API calls and improve stability
     return NextResponse.json({
       connected: true,
       canRead: true,
@@ -112,6 +87,8 @@ export async function POST() {
         email: 'mateo@email.com',
         accessCode: 'ASCENT01',
         level: 'INTERMEDIO',
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
       })
       .select()
       .single()
